@@ -34,44 +34,41 @@ prompt_best_practices:
       Do not flag issues for best practices that are irrelevant to the file's purpose.
 
 requirement_file_format:
-  description: "Validate BRIDL-REQ-002.1 requirement file style: RFC 2119 compliance, stable IDs, and sequential numbering."
+  description: "Review BRIDL-REQ-008.1 requirement files for judgment-based quality that complements deterministic DeepSchema checks."
   match:
     include:
-      - "doc/specs/**/*-REQ-*.md"
+      - "requirements/BRIDL-REQ-*.md"
   review:
     strategy: individual
     instructions: |
-      Review this requirements specification file for format correctness.
+      Review this requirements specification file for requirement quality.
 
-      Check the following:
+      Deterministic format facts such as filename shape, heading ID shape,
+      section ID consistency, and RFC 2119 keyword presence are handled by the
+      requirements_file DeepSchema. Do not duplicate those exact checks here.
 
-      1. **RFC 2119 keywords**: Every numbered requirement statement MUST use
-         at least one RFC 2119 keyword (MUST, MUST NOT, SHALL, SHALL NOT,
-         SHOULD, SHOULD NOT, MAY, REQUIRED, RECOMMENDED, OPTIONAL).
+      Check the following judgment-based concerns:
 
-      2. **Stable requirement IDs**: Each section heading MUST follow the
-         pattern `### {PREFIX}-REQ-NNN.M: Title` where `{PREFIX}-REQ-NNN`
-         matches the filename prefix, such as `BRIDL-REQ-001`.
-
-      3. **Sequential numbering**: Within each section, numbered requirements
-         SHOULD be sequential without gaps or out-of-order numbers.
-
-      4. **Section ID consistency**: The section ID prefix MUST match the
-         requirement file name prefix.
-
-      5. **Testability**: Each requirement MUST be specific enough to verify by
+      1. **Testability**: Each requirement MUST be specific enough to verify by
          TypeScript test, DeepSchema, DeepReview rule, or direct reviewer judgment.
 
+      2. **Stable identity risk**: Flag likely ID reassignment or semantic drift
+         only when the requirement text appears to reuse an existing ID for an
+         unrelated concept.
+
+      3. **Validation mechanism fit**: Flag requirements whose expected
+         validation mechanism is unclear or obviously mismatched.
+
       Output Format:
-      - PASS: All requirements are properly formatted.
+      - PASS: All requirements are specific, stable, and validation-ready.
       - FAIL: Issues found. List each with the section ID, requirement number,
         and a concise description of the issue.
 
 requirements_traceability:
-  description: "Verify BRIDL-REQ-002 traceability between requirements, TypeScript tests, DeepSchemas, and DeepReview rules."
+  description: "Verify BRIDL-REQ-008 traceability between requirements, TypeScript tests, DeepSchemas, and DeepReview rules."
   match:
     include:
-      - "doc/specs/**/*.md"
+      - "requirements/BRIDL-REQ-*.md"
       - "src/**/*.ts"
       - "bin/**/*.ts"
       - "tests/**/*.ts"
@@ -85,8 +82,8 @@ requirements_traceability:
     instructions: |
       Review the changed files for requirements traceability.
 
-      Requirements live in `doc/specs/` as `{PREFIX}-REQ-NNN-<topic>.md`,
-      with individually numbered items such as `BRIDL-REQ-002.3`. Each
+      Requirements live in `requirements/` as `BRIDL-REQ-NNN-<topic>.md`,
+      with individually numbered items such as `BRIDL-REQ-008.3`. Each
       requirement should be validated by TypeScript tests, DeepSchemas, or
       `.deepreview` rules using the mechanism that fits the requirement.
 
@@ -111,7 +108,7 @@ requirements_traceability:
 
    
 test_file_quality:
-  description: "Verify BRIDL-REQ-002.3 TypeScript test traceability comments are durable and correctly formatted."
+  description: "Verify BRIDL-REQ-008.3 TypeScript test traceability comments are durable and correctly formatted."
   match:
     include:
       - "tests/**/*.ts"
@@ -133,7 +130,7 @@ test_file_quality:
       `describe(...)` block:
 
       ```ts
-      // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-002.3).
+      // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-008.3).
       // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
       it("validates durable behavior", () => {
         // ...
@@ -158,6 +155,30 @@ test_file_quality:
       - PASS: All traceability comments are correctly formatted.
       - FAIL: Issues found. List each with the test name, line number, and a
         concise description.
+
+controllable_elements_matrix:
+  description: "Verify BRIDL-REQ-007 controllable element documentation has a complete support matrix."
+  match:
+    include:
+      - "doc/controllable-elements.md"
+  review:
+    strategy: individual
+    instructions: |
+      Review doc/controllable-elements.md for the BRIDL-REQ-007 support matrix contract.
+
+      Check the following:
+      1. Every `###` heading under `## Defined Terms` MUST have exactly one
+         corresponding row in the `## Support Matrix` table.
+      2. Every support matrix row MUST correspond to a defined term; rows for
+         undefined terms are not allowed.
+      3. Every CLI support cell in the matrix MUST use only `Supported`,
+         `Roadmap`, or `Unsupported`.
+      4. The document MUST explain the meaning of each allowed status value.
+
+      Output Format:
+      - PASS: The controllable elements matrix is complete and uses valid statuses.
+      - FAIL: Issues found. List each missing term, extra row, invalid status, or
+        missing status definition with a line reference.
 
 update_readme:
   description: "Ensure README.md and recommendation.md stay current as the TypeScript project skeleton and profile-wrapper design evolve."
