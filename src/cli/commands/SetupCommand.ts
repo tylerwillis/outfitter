@@ -215,7 +215,7 @@ const createGitSetupSourceSynchronizer = (): SetupSourceSynchronizer => ({
       return;
     }
 
-    runGit(['clone', normalizeGitUri(uri), cachePath], uri);
+    runGit(['clone', '--', normalizeGitUri(uri), cachePath], uri);
   },
 });
 
