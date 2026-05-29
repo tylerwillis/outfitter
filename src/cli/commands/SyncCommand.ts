@@ -1,19 +1,29 @@
-// Provides the command object for synchronizing URI-backed profile sources.
+// Provides the command object for synchronizing URI-backed profile and settings sources.
 import { existsSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname } from 'node:path';
+import { dirname, resolve } from 'node:path';
 
 import type { Command } from 'commander';
 import spawn from 'cross-spawn';
 
 import {
   createProfileSourceCachePath,
+  createRemoteRepositoryCachePath,
   normalizeGitUri,
   redactProfileSourceUriCredentials,
 } from '../../profiles/ProfileCache.js';
 import { loadLocalProfileSource } from '../../profiles/ProfileLoader.js';
-import type { ProfileSourceReference } from '../../profiles/ProfileSource.js';
-import { discoverSettingsLoadPlan, loadSettings } from '../../settings/SettingsLoader.js';
+import {
+  normalizeRemoteSourceUri,
+  type ProfileSourceReference,
+  type RemoteSourceReference,
+} from '../../profiles/ProfileSource.js';
+import type { RemoteSettingsReference } from '../../settings/Settings.js';
+import {
+  discoverSettingsLoadPlan,
+  loadSettings,
+  loadSettingsWithCachedRemoteSettings,
+} from '../../settings/SettingsLoader.js';
 import type { CommandObject } from './CommandObject.js';
 
 export type SyncSourceStatus = 'updated' | 'unchanged' | 'skipped' | 'failed';
@@ -36,7 +46,7 @@ export interface SyncCommandResult {
 }
 
 export interface UriProfileSourceSynchronizer {
-  sync(source: ProfileSourceReference & { readonly uri: string }, cachePath: string): SyncSourceStatus;
+  sync(source: RemoteSourceReference, cachePath: string): SyncSourceStatus;
 }
 
 export interface SyncCommandDependencies {
@@ -50,15 +60,25 @@ export const executeSyncCommand = (
   input: SyncCommandInput,
   dependencies: SyncCommandDependencies = {},
 ): SyncCommandResult => {
-  const loadedSettings = loadSettings(discoverSettingsLoadPlan(input));
+  const localSettings = loadSettings(discoverSettingsLoadPlan(input));
+
+  if (localSettings.issues.length > 0) {
+    throw new Error(`Cannot sync with invalid settings: ${localSettings.issues.map(formatSettingsIssue).join('; ')}`);
+  }
+
+  const synchronizer = dependencies.synchronizer ?? createGitSynchronizer();
+  const remoteSettingsResults = localSettings.settings.remoteSettings.map((source) =>
+    syncRemoteSettingsSource(input.homeDirectory, source, synchronizer),
+  );
+  const loadedSettings = loadSettingsWithCachedRemoteSettings(input);
 
   if (loadedSettings.issues.length > 0) {
     throw new Error(`Cannot sync with invalid settings: ${loadedSettings.issues.map(formatSettingsIssue).join('; ')}`);
   }
 
-  const uriSources = loadedSettings.settings.profileSources.filter(hasUri);
-  const synchronizer = dependencies.synchronizer ?? createGitSynchronizer();
-  const sourceResults = uriSources.map((source) => syncUriSource(input.homeDirectory, source, synchronizer));
+  const uriSources = loadedSettings.settings.profileSources.filter(isRemoteProfileSource);
+  const profileSourceResults = uriSources.map((source) => syncUriSource(input.homeDirectory, source, synchronizer));
+  const sourceResults = [...remoteSettingsResults, ...profileSourceResults];
 
   return {
     sources: sourceResults,
@@ -99,17 +119,48 @@ export const createSyncCommand = (dependencies: SyncCommandDependencies = {}): C
   return command;
 };
 
-const syncUriSource = (
+const syncRemoteSettingsSource = (
   homeDirectory: string,
-  source: ProfileSourceReference & { readonly uri: string },
+  source: RemoteSettingsReference,
   synchronizer: UriProfileSourceSynchronizer,
 ): SyncSourceResult => {
-  const cachePath = createProfileSourceCachePath(homeDirectory, source.uri);
-  const displayUri = redactProfileSourceUriCredentials(source.uri);
+  const cachePath = createRemoteRepositoryCachePath(homeDirectory, source);
+  const displayUri = formatDisplayUri(source);
 
   try {
     const status = synchronizer.sync(source, cachePath);
-    const validation = loadLocalProfileSource({ path: cachePath, only: source.only, except: source.except });
+    const settingsPath = resolve(cachePath, source.path);
+
+    if (!existsSync(settingsPath)) {
+      return {
+        uri: displayUri,
+        cachePath,
+        status: 'failed',
+        message: `Remote settings file not found: ${settingsPath}`,
+      };
+    }
+
+    return { uri: displayUri, cachePath, status, message: `Remote settings file available at ${settingsPath}.` };
+  } catch (error) {
+    return formatSyncFailure(displayUri, cachePath, source, error);
+  }
+};
+
+const syncUriSource = (
+  homeDirectory: string,
+  source: RemoteProfileSource,
+  synchronizer: UriProfileSourceSynchronizer,
+): SyncSourceResult => {
+  const cachePath = remoteCachePathForProfileSource(homeDirectory, source);
+  const displayUri = formatDisplayUri(source);
+
+  try {
+    const status = synchronizer.sync(source, cachePath);
+    const validation = loadLocalProfileSource({
+      path: resolve(cachePath, source.path ?? ''),
+      only: source.only,
+      except: source.except,
+    });
 
     if (validation.issues.length > 0) {
       return {
@@ -128,14 +179,7 @@ const syncUriSource = (
         validation.profiles.length === 1 ? '1 profile validated.' : `${validation.profiles.length} profiles validated.`,
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-
-    return {
-      uri: displayUri,
-      cachePath,
-      status: 'failed',
-      message: redactSensitiveText(message, source.uri),
-    };
+    return formatSyncFailure(displayUri, cachePath, source, error);
   }
 };
 
@@ -144,14 +188,27 @@ const createGitSynchronizer = (): UriProfileSourceSynchronizer => ({
     mkdirSync(dirname(cachePath), { recursive: true });
 
     if (existsSync(cachePath)) {
+      runGit(['-C', cachePath, 'fetch', '--all', '--tags']);
+      checkoutRefIfPresent(cachePath, source.ref);
       runGit(['-C', cachePath, 'pull', '--ff-only']);
       return 'updated';
     }
 
-    runGit(['clone', normalizeGitUri(source.uri), cachePath]);
+    const cloneArgs = ['clone'];
+    if (source.ref !== undefined) {
+      cloneArgs.push('--branch', source.ref);
+    }
+    cloneArgs.push(normalizeGitUri(normalizeRemoteSourceUri(source)), cachePath);
+    runGit(cloneArgs);
     return 'updated';
   },
 });
+
+const checkoutRefIfPresent = (cachePath: string, ref: string | undefined): void => {
+  if (ref !== undefined) {
+    runGit(['-C', cachePath, 'checkout', ref]);
+  }
+};
 
 const runGit = (args: readonly string[]): void => {
   const result = spawn.sync('git', args, { stdio: 'pipe', encoding: 'utf8' });
@@ -162,8 +219,41 @@ const runGit = (args: readonly string[]): void => {
   }
 };
 
-const hasUri = (source: ProfileSourceReference): source is ProfileSourceReference & { readonly uri: string } =>
-  source.uri !== undefined;
+type RemoteProfileSource = ProfileSourceReference & ({ readonly uri: string } | { readonly github: string });
+
+const isRemoteProfileSource = (source: ProfileSourceReference): source is RemoteProfileSource =>
+  source.uri !== undefined || source.github !== undefined;
+
+const remoteCachePathForProfileSource = (homeDirectory: string, source: RemoteProfileSource): string => {
+  if (source.ref === undefined && source.path === undefined && source.uri !== undefined) {
+    return createProfileSourceCachePath(homeDirectory, source.uri);
+  }
+
+  return createRemoteRepositoryCachePath(homeDirectory, source);
+};
+
+const formatDisplayUri = (source: RemoteSourceReference): string => {
+  const uri = redactProfileSourceUriCredentials(normalizeRemoteSourceUri(source));
+  const ref = source.ref === undefined ? '' : `#${source.ref}`;
+  const path = source.path === undefined ? '' : `:${source.path}`;
+  return `${uri}${ref}${path}`;
+};
+
+const formatSyncFailure = (
+  displayUri: string,
+  cachePath: string,
+  source: RemoteSourceReference,
+  error: unknown,
+): SyncSourceResult => {
+  const message = error instanceof Error ? error.message : String(error);
+
+  return {
+    uri: displayUri,
+    cachePath,
+    status: 'failed',
+    message: redactSensitiveText(message, normalizeRemoteSourceUri(source)),
+  };
+};
 
 const redactSensitiveText = (message: string, uri: string): string =>
   message

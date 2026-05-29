@@ -1,11 +1,19 @@
-// Encodes URI-backed profile source cache paths.
+// Encodes remote profile/source cache paths.
 import { join } from 'node:path';
+
+import { normalizeRemoteSourceUri, type RemoteSourceReference } from './ProfileSource.js';
 
 export const encodeProfileSourceUri = (uri: string): string =>
   Buffer.from(redactProfileSourceUriCredentials(uri), 'utf8').toString('base64url');
 
+export const encodeRemoteSource = (source: RemoteSourceReference): string =>
+  encodeProfileSourceUri(`${normalizeRemoteSourceUri(source)}#${source.ref ?? ''}`);
+
 export const createProfileSourceCachePath = (homeDirectory: string, uri: string): string =>
   join(homeDirectory, '.bridl', 'cache', 'profiles', encodeProfileSourceUri(uri));
+
+export const createRemoteRepositoryCachePath = (homeDirectory: string, source: RemoteSourceReference): string =>
+  join(homeDirectory, '.bridl', 'cache', 'repos', encodeRemoteSource(source));
 
 export const redactProfileSourceUriCredentials = (uri: string): string => {
   const prefix = uri.startsWith('git+') ? 'git+' : '';

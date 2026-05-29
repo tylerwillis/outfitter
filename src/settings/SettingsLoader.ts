@@ -2,15 +2,16 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 
+import { createRemoteRepositoryCachePath } from '../profiles/ProfileCache.js';
 import type { ProfileSourceReference } from '../profiles/ProfileSource.js';
 import type { ValidationIssue } from '../validation/SchemaValidator.js';
 import { validateSchema } from '../validation/SchemaValidator.js';
 import { parseYamlDocument } from '../validation/YamlDocument.js';
-import type { Settings } from './Settings.js';
+import type { RemoteSettingsReference, Settings } from './Settings.js';
 import { mergeSettingsStack } from './SettingsMerger.js';
 
 export interface SettingsLocation {
-  readonly scope: 'user' | 'project' | 'project-local';
+  readonly scope: 'user' | 'project' | 'project-local' | 'remote';
   readonly path: string;
 }
 
@@ -39,13 +40,23 @@ export interface SettingsLoadIssue extends ValidationIssue {
 interface SettingsDocument {
   readonly default_profile?: string;
   readonly profile_sources?: readonly ProfileSourceDocument[];
+  readonly remote_settings?: readonly RemoteSettingsDocument[];
 }
 
 interface ProfileSourceDocument {
   readonly path?: string;
   readonly uri?: string;
+  readonly github?: string;
+  readonly ref?: string;
   readonly only?: readonly string[];
   readonly except?: readonly string[];
+}
+
+interface RemoteSettingsDocument {
+  readonly path: string;
+  readonly uri?: string;
+  readonly github?: string;
+  readonly ref?: string;
 }
 
 export interface SettingsDiscoveryInput {
@@ -63,6 +74,17 @@ export const discoverSettingsLoadPlan = (input: SettingsDiscoveryInput): Setting
     { scope: 'project', path: join(input.projectDirectory, '.bridl', 'settings.yml') },
     { scope: 'project-local', path: join(input.projectDirectory, '.bridl', 'local', 'settings.yml') },
   ]);
+
+export const discoverRemoteSettingsLoadPlan = (
+  homeDirectory: string,
+  remoteSettings: readonly RemoteSettingsReference[],
+): SettingsLoadPlan =>
+  createSettingsLoadPlan(
+    remoteSettings.map((source) => ({
+      scope: 'remote' as const,
+      path: resolve(createRemoteRepositoryCachePath(homeDirectory, source), source.path),
+    })),
+  );
 
 export const loadSettingsFiles = (plan: SettingsLoadPlan): SettingsLoadResult => {
   const files: LoadedSettingsFile[] = [];
@@ -83,6 +105,26 @@ export const loadSettings = (plan: SettingsLoadPlan): LoadedSettings => {
   return {
     ...result,
     settings: mergeSettingsStack(result.files.map((file) => file.settings)),
+  };
+};
+
+export const loadSettingsWithCachedRemoteSettings = (input: SettingsDiscoveryInput): LoadedSettings => {
+  const localSettings = loadSettings(discoverSettingsLoadPlan(input));
+
+  if (localSettings.issues.length > 0 || localSettings.settings.remoteSettings.length === 0) {
+    return localSettings;
+  }
+
+  const remoteSettings = loadSettings(
+    discoverRemoteSettingsLoadPlan(input.homeDirectory, localSettings.settings.remoteSettings),
+  );
+  const files = [...remoteSettings.files, ...localSettings.files];
+  const issues = [...remoteSettings.issues, ...localSettings.issues];
+
+  return {
+    files,
+    issues,
+    settings: mergeSettingsStack(files.map((file) => file.settings)),
   };
 };
 
@@ -114,6 +156,7 @@ const addSettingsFile = (
 const convertSettingsDocument = (document: SettingsDocument, settingsDirectory: string): Settings => ({
   defaultProfile: document.default_profile,
   profileSources: (document.profile_sources ?? []).map((source) => convertProfileSource(source, settingsDirectory)),
+  remoteSettings: document.remote_settings ?? [],
 });
 
 const convertProfileSource = (source: ProfileSourceDocument, settingsDirectory: string): ProfileSourceReference => {
@@ -122,11 +165,15 @@ const convertProfileSource = (source: ProfileSourceDocument, settingsDirectory: 
     except: source.except,
   };
 
-  if (source.path !== undefined) {
-    return { ...filters, path: resolveProfileSourcePath(source.path, settingsDirectory) };
+  if (source.uri !== undefined) {
+    return { ...filters, uri: source.uri, ref: source.ref, path: source.path };
   }
 
-  return { ...filters, uri: source.uri! };
+  if (source.github !== undefined) {
+    return { ...filters, github: source.github, ref: source.ref, path: source.path };
+  }
+
+  return { ...filters, path: resolveProfileSourcePath(source.path!, settingsDirectory) };
 };
 
 const resolveProfileSourcePath = (sourcePath: string, settingsDirectory: string): string => {

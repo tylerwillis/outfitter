@@ -14,6 +14,7 @@ Bridl provides setup and maintenance commands that create initial configuration,
 4. The `setup` command MUST validate discovered settings files.
 5. The `setup` command MUST run sync behavior for URI-based profile sources.
 6. The `setup` command SHOULD avoid overwriting existing user files unless a future explicit force option authorizes replacement.
+7. When provided a setup source URI, the `setup` command MUST use that source repository's Bridl `settings.yml` and profiles as the initial user setup starting point.
 
 ### BRIDL-REQ-004.2: Sync Command
 
