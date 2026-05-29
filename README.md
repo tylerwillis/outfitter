@@ -34,10 +34,27 @@ bridl run --profile engineering-default
 bridl run -p support -- --cwd ~/work/customer-issue
 bridl sync
 bridl setup
+bridl setup https://github.com/my_account/bridl_config
 bridl create_profile regulated --scope user
 ```
 
 Under the hood, `bridl` will translate a selected profile into the appropriate `pi` launch environment, such as `PI_CODING_AGENT_DIR`, CLI flags, injected extensions, prompts, model settings, session directories, and environment variables.
+
+`settings.yml` can point at local profiles, full Git URIs, or GitHub shorthand sources with optional refs and repository subpaths:
+
+```yaml
+remote_settings:
+  - github: my_account/bridl_config
+    ref: main
+    path: settings.yml
+
+profile_sources:
+  - github: my_account/bridl_config
+    ref: main
+    path: profiles
+```
+
+Run `bridl sync` to fetch/update remote settings and profiles before using them.
 
 ## Profile model sketch
 

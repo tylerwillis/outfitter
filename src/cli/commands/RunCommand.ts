@@ -9,13 +9,13 @@ import spawn from 'cross-spawn';
 
 import type { AgentAdapter, AgentLaunchPlan } from '../../agents/AgentAdapter.js';
 import { createPiAdapter } from '../../agents/pi/PiAdapter.js';
-import { createProfileSourceCachePath } from '../../profiles/ProfileCache.js';
+import { createProfileSourceCachePath, createRemoteRepositoryCachePath } from '../../profiles/ProfileCache.js';
 import { loadLocalProfileSource } from '../../profiles/ProfileLoader.js';
 import type { LoadedProfile } from '../../profiles/ProfileLoader.js';
 import type { Profile } from '../../profiles/Profile.js';
 import type { ProfileSourceReference } from '../../profiles/ProfileSource.js';
 import { resolveProfile } from '../../profiles/ProfileMerger.js';
-import { discoverSettingsLoadPlan, loadSettings } from '../../settings/SettingsLoader.js';
+import { loadSettingsWithCachedRemoteSettings } from '../../settings/SettingsLoader.js';
 import { createTackRootDirectory, writeTack } from '../../tack/TackAssembler.js';
 import { watchTackInputs } from '../../tack/TackWatcher.js';
 import type { CommandObject } from './CommandObject.js';
@@ -168,7 +168,7 @@ const runSetupIfNeeded = (input: RunCommandInput, dependencies: RunCommandDepend
 };
 
 const loadResolvedProfile = (input: RunCommandInput): ResolvedRunProfile => {
-  const loadedSettings = loadSettings(discoverSettingsLoadPlan(input));
+  const loadedSettings = loadSettingsWithCachedRemoteSettings(input);
 
   if (loadedSettings.issues.length > 0) {
     throw new Error(`Cannot run with invalid settings: ${loadedSettings.issues.map(formatSettingsIssue).join('; ')}`);
@@ -228,11 +228,19 @@ const loadProfileSources = (
 };
 
 const materializeSource = (homeDirectory: string, source: ProfileSourceReference): ProfileSourceReference => {
-  if (source.uri === undefined) {
+  if (source.uri === undefined && source.github === undefined) {
     return source;
   }
 
-  return { path: createProfileSourceCachePath(homeDirectory, source.uri), only: source.only, except: source.except };
+  if (source.uri !== undefined && source.ref === undefined && source.path === undefined) {
+    return { path: createProfileSourceCachePath(homeDirectory, source.uri), only: source.only, except: source.except };
+  }
+
+  return {
+    path: join(createRemoteRepositoryCachePath(homeDirectory, source), source.path ?? ''),
+    only: source.only,
+    except: source.except,
+  };
 };
 
 /* v8 ignore start -- the real child-process launcher is direct runtime behavior; tests inject a launcher. */

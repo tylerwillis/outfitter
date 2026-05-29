@@ -39,10 +39,10 @@ const writeCachedProfile = (cachePath: string, profileId = 'remote'): void => {
   writeFileSync(join(profileDirectory, 'profile.yml'), `id: ${profileId}\ncontrols: {}\n`);
 };
 
-const createGitProfileRepository = (root: string): string => {
-  const repositoryPath = join(root, 'remote-profiles');
+const createGitProfileRepository = (root: string, repositoryName = 'remote-profiles'): string => {
+  const repositoryPath = join(root, repositoryName);
   writeCachedProfile(repositoryPath, 'remote');
-  execFileSync('git', ['init'], { cwd: repositoryPath, stdio: 'pipe' });
+  execFileSync('git', ['init', '--initial-branch', 'main'], { cwd: repositoryPath, stdio: 'pipe' });
   execFileSync('git', ['add', '.'], { cwd: repositoryPath, stdio: 'pipe' });
   execFileSync(
     'git',
@@ -89,6 +89,73 @@ describe('phase 4 setup and sync commands', () => {
     expect(secondResult.createdSettings).toBe(false);
     expect(secondResult.createdDefaultProfile).toBe(false);
     expect(readFileSync(defaultProfilePath, 'utf8')).toBe('id: default\nlabel: Custom\n');
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-004.1, BRIDL-REQ-004.7).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('uses a setup source repository as the initial user settings and profiles without overwriting files', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const setupSourceUri = 'https://github.com/example/bridl-config';
+    const sourceCachePath = join(root, 'starter-cache');
+    mkdirSync(join(sourceCachePath, 'profiles', 'team'), { recursive: true });
+    writeFileSync(
+      join(sourceCachePath, 'settings.yml'),
+      'default_profile: team\nprofile_sources:\n  - path: ./profiles\n',
+    );
+    writeFileSync(join(sourceCachePath, 'profiles', 'team', 'profile.yml'), 'id: team\nlabel: Team\ncontrols: {}\n');
+
+    const result = executeSetupCommand(
+      { homeDirectory, projectDirectory, setupSourceUri },
+      {
+        setupSourceSynchronizer: {
+          sync(uri, cachePath) {
+            expect(uri).toBe(setupSourceUri);
+            mkdirSync(cachePath, { recursive: true });
+            writeFileSync(join(cachePath, 'settings.yml'), readFileSync(join(sourceCachePath, 'settings.yml'), 'utf8'));
+            mkdirSync(join(cachePath, 'profiles', 'team'), { recursive: true });
+            writeFileSync(
+              join(cachePath, 'profiles', 'team', 'profile.yml'),
+              readFileSync(join(sourceCachePath, 'profiles', 'team', 'profile.yml'), 'utf8'),
+            );
+          },
+        },
+      },
+    );
+
+    expect(result.createdSettings).toBe(true);
+    expect(result.copiedStarterProfileFiles).toBe(1);
+    expect(result.createdDefaultProfile).toBe(false);
+    expect(readFileSync(join(homeDirectory, '.bridl', 'settings.yml'), 'utf8')).toBe(
+      'default_profile: team\nprofile_sources:\n  - path: ./profiles\n',
+    );
+    expect(readFileSync(join(homeDirectory, '.bridl', 'profiles', 'team', 'profile.yml'), 'utf8')).toBe(
+      'id: team\nlabel: Team\ncontrols: {}\n',
+    );
+
+    writeFileSync(join(homeDirectory, '.bridl', 'settings.yml'), 'default_profile: custom\n');
+    writeFileSync(join(homeDirectory, '.bridl', 'profiles', 'team', 'profile.yml'), 'id: team\nlabel: Custom\n');
+    const secondResult = executeSetupCommand(
+      { homeDirectory, projectDirectory, setupSourceUri },
+      {
+        setupSourceSynchronizer: {
+          sync(_uri, cachePath) {
+            mkdirSync(cachePath, { recursive: true });
+            writeFileSync(join(cachePath, 'settings.yml'), 'default_profile: team\n');
+            mkdirSync(join(cachePath, 'profiles', 'team'), { recursive: true });
+            writeFileSync(join(cachePath, 'profiles', 'team', 'profile.yml'), 'id: team\nlabel: Starter\n');
+          },
+        },
+      },
+    );
+
+    expect(secondResult.createdSettings).toBe(false);
+    expect(secondResult.copiedStarterProfileFiles).toBe(0);
+    expect(readFileSync(join(homeDirectory, '.bridl', 'settings.yml'), 'utf8')).toBe('default_profile: custom\n');
+    expect(readFileSync(join(homeDirectory, '.bridl', 'profiles', 'team', 'profile.yml'), 'utf8')).toBe(
+      'id: team\nlabel: Custom\n',
+    );
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-004.1).
@@ -185,7 +252,7 @@ describe('phase 4 setup and sync commands', () => {
       {
         synchronizer: {
           sync(source, cachePath) {
-            syncedUris.push(source.uri);
+            syncedUris.push(source.uri!);
             writeCachedProfile(cachePath);
             return source.uri === firstUri ? 'updated' : 'skipped';
           },
@@ -258,6 +325,9 @@ describe('phase 4 setup and sync commands', () => {
 
     const firstResult = executeSyncCommand({ homeDirectory, projectDirectory });
     const secondResult = executeSyncCommand({ homeDirectory, projectDirectory });
+    writeSettings(homeDirectory, `profile_sources:\n  - uri: ${uri}\n    ref: main\n    path: .\n`);
+    const refResult = executeSyncCommand({ homeDirectory, projectDirectory });
+    const secondRefResult = executeSyncCommand({ homeDirectory, projectDirectory });
     const failedUri = `file://${join(root, 'missing-repository')}`;
     writeSettings(homeDirectory, `profile_sources:\n  - uri: ${failedUri}\n`);
     const failedResult = executeSyncCommand({ homeDirectory, projectDirectory });
@@ -271,6 +341,8 @@ describe('phase 4 setup and sync commands', () => {
       },
     ]);
     expect(secondResult.sources[0]?.status).toBe('updated');
+    expect(refResult.sources[0]?.message).toBe('1 profile validated.');
+    expect(secondRefResult.sources[0]?.message).toBe('1 profile validated.');
     expect(failedResult.sources[0]?.status).toBe('failed');
     expect(failedResult.sources[0]?.message).toContain('does not appear to be a git repository');
   });
