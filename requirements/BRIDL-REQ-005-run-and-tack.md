@@ -14,6 +14,7 @@ The `run` command assembles a temporary agent-specific configuration directory c
 4. The `run` command MUST accept `-p` and `--profile` options for selecting the profile.
 5. The `run` command MUST use the resolved default profile when no profile option is provided.
 6. The `run` command MUST pass unrecognized arguments through to the selected agent CLI unaltered.
+7. When invoked before user setup has created `~/.bridl/settings.yml`, the default `run` command MUST print `` `bridl setup` has not been run yet - running now `` and execute setup before resolving the profile.
 
 ### BRIDL-REQ-005.2: Tack Definition
 
