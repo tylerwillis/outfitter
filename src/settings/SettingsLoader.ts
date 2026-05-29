@@ -2,7 +2,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 
-import { createRemoteRepositoryCachePath } from '../profiles/ProfileCache.js';
+import { createRemoteRepositoryCachePath, resolveRemoteRepositorySubpath } from '../profiles/ProfileCache.js';
 import type { ProfileSourceReference } from '../profiles/ProfileSource.js';
 import type { ValidationIssue } from '../validation/SchemaValidator.js';
 import { validateSchema } from '../validation/SchemaValidator.js';
@@ -82,7 +82,7 @@ export const discoverRemoteSettingsLoadPlan = (
   createSettingsLoadPlan(
     remoteSettings.map((source) => ({
       scope: 'remote' as const,
-      path: resolve(createRemoteRepositoryCachePath(homeDirectory, source), source.path),
+      path: resolveRemoteRepositorySubpath(createRemoteRepositoryCachePath(homeDirectory, source), source.path),
     })),
   );
 

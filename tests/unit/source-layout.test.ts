@@ -1,4 +1,4 @@
-// Tests the initial source layout scaffolding for Bridl modules.
+// Tests source layout, command registration, schemas, and small boundary helpers.
 import { readFileSync } from 'node:fs';
 
 import type { AnySchema } from 'ajv';

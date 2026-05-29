@@ -391,7 +391,7 @@ Requirements:
 Responsibilities:
 
 - create `~/.bridl/settings.yml` when missing;
-- accept an optional setup source URI, for example `bridl setup https://github.com/example/bridl-config`, and clone/update it under `~/.bridl/cache/setup/<encoded-uri>/`;
+- accept an optional setup source URI, for example `bridl setup https://github.com/example/bridl-config`, and clone/update it under `~/.bridl/cache/repos/<encoded-uri-and-ref>/`;
 - when a setup source is provided, use its root `settings.yml` or `.bridl/settings.yml` and `profiles/` or `.bridl/profiles/` as the initial non-overwriting user setup starting point;
 - create a default profile when missing;
 - validate all discovered settings files and any starter settings file;
@@ -404,9 +404,10 @@ Responsibilities:
 
 - read settings;
 - validate profile sources;
-- fetch/update URI-based profile sources;
-- store them under `~/.bridl/cache/profiles/<encoded-uri>/`;
-- validate fetched profiles.
+- fetch/update URI-based, GitHub shorthand, and remote settings sources;
+- store plain URI profile sources without `ref` or repository subpaths under `~/.bridl/cache/profiles/<encoded-uri>/` for compatibility;
+- store GitHub shorthand sources and sources with `ref` or repository subpaths under `~/.bridl/cache/repos/<encoded-uri-and-ref>/`;
+- validate fetched remote settings files and profiles.
 
 ### `bridl create_profile`
 

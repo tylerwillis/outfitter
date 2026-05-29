@@ -6,7 +6,11 @@ import { dirname, join } from 'node:path';
 import type { Command } from 'commander';
 import spawn from 'cross-spawn';
 
-import { createRemoteRepositoryCachePath, normalizeGitUri } from '../../profiles/ProfileCache.js';
+import {
+  createRemoteRepositoryCachePath,
+  normalizeGitUri,
+  redactProfileSourceUriCredentials,
+} from '../../profiles/ProfileCache.js';
 import { isValidProfileId } from '../../profiles/ProfileLoader.js';
 import {
   createSettingsLoadPlan,
@@ -114,13 +118,15 @@ const buildSetupMessages = (input: SetupMessageInput): readonly string[] => {
   const messages: string[] = [];
 
   if (input.input.setupSourceUri !== undefined && input.starterLayout !== undefined) {
-    messages.push(`Prepared setup source ${input.input.setupSourceUri} at ${input.starterLayout.cachePath}.`);
+    messages.push(
+      `Prepared setup source ${redactProfileSourceUriCredentials(input.input.setupSourceUri)} at ${input.starterLayout.cachePath}.`,
+    );
   }
 
   messages.push(
     input.createdSettings
       ? `Created user settings at ${input.settingsPath}.`
-      : `User settings already exists at ${input.settingsPath}; left unchanged.`,
+      : `User settings already exist at ${input.settingsPath}; left unchanged.`,
   );
 
   if (input.starterLayout?.profilesPath !== undefined) {
@@ -205,22 +211,31 @@ const createGitSetupSourceSynchronizer = (): SetupSourceSynchronizer => ({
     mkdirSync(dirname(cachePath), { recursive: true });
 
     if (existsSync(cachePath)) {
-      runGit(['-C', cachePath, 'pull', '--ff-only']);
+      runGit(['-C', cachePath, 'pull', '--ff-only'], uri);
       return;
     }
 
-    runGit(['clone', normalizeGitUri(uri), cachePath]);
+    runGit(['clone', normalizeGitUri(uri), cachePath], uri);
   },
 });
 
-const runGit = (args: readonly string[]): void => {
+const runGit = (args: readonly string[], sensitiveUri: string): void => {
   const result = spawn.sync('git', args, { stdio: 'pipe', encoding: 'utf8' });
 
   if (result.status !== 0) {
     /* v8 ignore next -- the final fallback only applies if git emits no stdout or stderr. */
-    throw new Error((result.stderr || result.stdout || `git ${args.join(' ')} failed`).trim());
+    throw new Error(
+      redactSensitiveText((result.stderr || result.stdout || `git ${args.join(' ')} failed`).trim(), sensitiveUri),
+    );
   }
 };
+
+const redactSensitiveText = (message: string, uri: string): string =>
+  message
+    .split(uri)
+    .join(redactProfileSourceUriCredentials(uri))
+    .split(normalizeGitUri(uri))
+    .join(redactProfileSourceUriCredentials(normalizeGitUri(uri)));
 
 const firstExistingPath = (...paths: readonly string[]): string | undefined => paths.find((path) => existsSync(path));
 

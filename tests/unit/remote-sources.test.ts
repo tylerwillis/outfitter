@@ -103,6 +103,40 @@ describe('remote source settings', () => {
     expect(thrownResult.sources[0]?.status).toBe('failed');
     expect(thrownResult.sources[0]?.message).toBe('network unavailable');
 
+    const unsafeSyncCalls: string[] = [];
+    writeSettings(homeDirectory, `remote_settings:\n  - github: example/absolute\n    path: /tmp/settings.yml\n`);
+    expect(() =>
+      executeSyncCommand(
+        { homeDirectory, projectDirectory },
+        {
+          synchronizer: {
+            sync(source, cachePath) {
+              unsafeSyncCalls.push(source.github ?? source.uri!);
+              mkdirSync(cachePath, { recursive: true });
+              return 'updated';
+            },
+          },
+        },
+      ),
+    ).toThrow('must be relative');
+
+    writeSettings(homeDirectory, `remote_settings:\n  - github: example/escape\n    path: ../settings.yml\n`);
+    expect(() =>
+      executeSyncCommand(
+        { homeDirectory, projectDirectory },
+        {
+          synchronizer: {
+            sync(source, cachePath) {
+              unsafeSyncCalls.push(source.github ?? source.uri!);
+              mkdirSync(cachePath, { recursive: true });
+              return 'updated';
+            },
+          },
+        },
+      ),
+    ).toThrow('must stay inside the repository');
+    expect(unsafeSyncCalls).toEqual([]);
+
     writeSettings(homeDirectory, `remote_settings:\n  - github: example/invalid\n    path: settings.yml\n`);
     expect(() =>
       executeSyncCommand(
@@ -160,5 +194,39 @@ describe('remote source settings', () => {
       { launcher: { launch: () => Promise.resolve(0) } },
     );
     expect(rootProfileResult.profileId).toBe('remote');
+
+    const escapedProfileHomeDirectory = join(root, 'escaped-profile-home');
+    writeSettings(
+      escapedProfileHomeDirectory,
+      `default_profile: remote\nprofile_sources:\n  - github: example/bridl-config\n    path: ../profiles\n`,
+    );
+    await expect(
+      executeRunCommand(
+        { homeDirectory: escapedProfileHomeDirectory, projectDirectory },
+        { launcher: { launch: () => Promise.resolve(0) } },
+      ),
+    ).rejects.toThrow('must stay inside the repository');
+
+    const escapedProfileSyncHomeDirectory = join(root, 'escaped-profile-sync-home');
+    writeSettings(
+      escapedProfileSyncHomeDirectory,
+      `profile_sources:\n  - github: example/escape\n    path: ../profiles\n`,
+    );
+    const unsafeProfileSyncCalls: string[] = [];
+    const escapedProfileSyncResult = executeSyncCommand(
+      { homeDirectory: escapedProfileSyncHomeDirectory, projectDirectory },
+      {
+        synchronizer: {
+          sync(source, cachePath) {
+            unsafeProfileSyncCalls.push(source.github ?? source.uri!);
+            mkdirSync(cachePath, { recursive: true });
+            return 'updated';
+          },
+        },
+      },
+    );
+    expect(escapedProfileSyncResult.sources[0]?.status).toBe('failed');
+    expect(escapedProfileSyncResult.sources[0]?.message).toContain('must stay inside the repository');
+    expect(unsafeProfileSyncCalls).toEqual([]);
   });
 });

@@ -15,6 +15,7 @@ import { createSetupCommand, executeSetupCommand } from '../../src/cli/commands/
 import { createSyncCommand, executeSyncCommand } from '../../src/cli/commands/SyncCommand.js';
 import {
   createProfileSourceCachePath,
+  createRemoteRepositoryCachePath,
   encodeProfileSourceUri,
   normalizeGitUri,
 } from '../../src/profiles/ProfileCache.js';
@@ -91,13 +92,13 @@ describe('phase 4 setup and sync commands', () => {
     expect(readFileSync(defaultProfilePath, 'utf8')).toBe('id: default\nlabel: Custom\n');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-004.1, BRIDL-REQ-004.7).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-004.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('uses a setup source repository as the initial user settings and profiles without overwriting files', () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
-    const setupSourceUri = 'https://github.com/example/bridl-config';
+    const setupSourceUri = 'https://user:secret@example.test/bridl-config';
     const sourceCachePath = join(root, 'starter-cache');
     mkdirSync(join(sourceCachePath, 'profiles', 'team'), { recursive: true });
     writeFileSync(
@@ -126,6 +127,7 @@ describe('phase 4 setup and sync commands', () => {
 
     expect(result.createdSettings).toBe(true);
     expect(result.copiedStarterProfileFiles).toBe(1);
+    expect(result.messages.join('\n')).not.toContain('secret');
     expect(result.createdDefaultProfile).toBe(false);
     expect(readFileSync(join(homeDirectory, '.bridl', 'settings.yml'), 'utf8')).toBe(
       'default_profile: team\nprofile_sources:\n  - path: ./profiles\n',
@@ -269,6 +271,8 @@ describe('phase 4 setup and sync commands', () => {
     expect(result.messages[0]).toContain(`${firstUri} -> ${createProfileSourceCachePath(homeDirectory, firstUri)}`);
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-004.2).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('redacts URI credentials from sync results and messages', () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
@@ -327,7 +331,17 @@ describe('phase 4 setup and sync commands', () => {
     const secondResult = executeSyncCommand({ homeDirectory, projectDirectory });
     writeSettings(homeDirectory, `profile_sources:\n  - uri: ${uri}\n    ref: main\n    path: .\n`);
     const refResult = executeSyncCommand({ homeDirectory, projectDirectory });
+    writeFileSync(join(repositoryPath, 'remote', 'profile.yml'), 'id: remote\nlabel: Updated\ncontrols: {}\n');
+    execFileSync('git', ['add', '.'], { cwd: repositoryPath, stdio: 'pipe' });
+    execFileSync(
+      'git',
+      ['-c', 'user.name=Bridl Test', '-c', 'user.email=bridl@example.test', 'commit', '-m', 'update profiles'],
+      { cwd: repositoryPath, stdio: 'pipe' },
+    );
     const secondRefResult = executeSyncCommand({ homeDirectory, projectDirectory });
+    const commitRef = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repositoryPath, encoding: 'utf8' }).trim();
+    writeSettings(homeDirectory, `profile_sources:\n  - uri: ${uri}\n    ref: ${commitRef}\n    path: .\n`);
+    const commitRefResult = executeSyncCommand({ homeDirectory, projectDirectory });
     const failedUri = `file://${join(root, 'missing-repository')}`;
     writeSettings(homeDirectory, `profile_sources:\n  - uri: ${failedUri}\n`);
     const failedResult = executeSyncCommand({ homeDirectory, projectDirectory });
@@ -342,7 +356,14 @@ describe('phase 4 setup and sync commands', () => {
     ]);
     expect(secondResult.sources[0]?.status).toBe('updated');
     expect(refResult.sources[0]?.message).toBe('1 profile validated.');
+    expect(commitRefResult.sources[0]?.message).toBe('1 profile validated.');
     expect(secondRefResult.sources[0]?.message).toBe('1 profile validated.');
+    expect(
+      readFileSync(
+        join(createRemoteRepositoryCachePath(homeDirectory, { uri, ref: 'main' }), 'remote', 'profile.yml'),
+        'utf8',
+      ),
+    ).toContain('label: Updated');
     expect(failedResult.sources[0]?.status).toBe('failed');
     expect(failedResult.sources[0]?.message).toContain('does not appear to be a git repository');
   });

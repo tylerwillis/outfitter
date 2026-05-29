@@ -26,6 +26,7 @@ Bridl provides setup and maintenance commands that create initial configuration,
 6. The `sync` command MUST validate profiles loaded from synchronized sources.
 7. The `sync` command SHOULD report whether each source was updated, unchanged, skipped, or failed.
 8. The first version of `sync` MUST NOT require lockfile-based profile source reproducibility.
+9. The `sync` command MUST redact credentials embedded in source URIs from user-facing output.
 
 ### BRIDL-REQ-004.3: Create Profile Command
 
