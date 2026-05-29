@@ -78,13 +78,7 @@ export const discoverSettingsLoadPlan = (input: SettingsDiscoveryInput): Setting
 export const discoverRemoteSettingsLoadPlan = (
   homeDirectory: string,
   remoteSettings: readonly RemoteSettingsReference[],
-): SettingsLoadPlan =>
-  createSettingsLoadPlan(
-    remoteSettings.map((source) => ({
-      scope: 'remote' as const,
-      path: resolveRemoteRepositorySubpath(createRemoteRepositoryCachePath(homeDirectory, source), source.path),
-    })),
-  );
+): SettingsLoadPlan => discoverRemoteSettingsLocations(homeDirectory, remoteSettings).plan;
 
 export const loadSettingsFiles = (plan: SettingsLoadPlan): SettingsLoadResult => {
   const files: LoadedSettingsFile[] = [];
@@ -120,9 +114,10 @@ export const loadSettingsWithCachedRemoteSettings = (
     return localSettings;
   }
 
-  const remoteSettings = loadSettings(discoverRemoteSettingsLoadPlan(input.homeDirectory, remoteSettingsReferences));
+  const remoteSettingsLocations = discoverRemoteSettingsLocations(input.homeDirectory, remoteSettingsReferences);
+  const remoteSettings = loadSettings(remoteSettingsLocations.plan);
   const files = [...remoteSettings.files, ...localSettings.files];
-  const issues = [...remoteSettings.issues, ...localSettings.issues];
+  const issues = [...remoteSettingsLocations.issues, ...remoteSettings.issues, ...localSettings.issues];
 
   return {
     files,
@@ -130,6 +125,45 @@ export const loadSettingsWithCachedRemoteSettings = (
     settings: mergeSettingsStack(files.map((file) => file.settings)),
   };
 };
+
+const discoverRemoteSettingsLocations = (
+  homeDirectory: string,
+  remoteSettings: readonly RemoteSettingsReference[],
+): SettingsLocationDiscoveryResult => {
+  const locations: SettingsLocation[] = [];
+  const issues: SettingsLoadIssue[] = [];
+
+  for (const [index, source] of remoteSettings.entries()) {
+    try {
+      locations.push({
+        scope: 'remote',
+        path: resolveRemoteRepositorySubpath(createRemoteRepositoryCachePath(homeDirectory, source), source.path),
+      });
+    } catch (error) {
+      issues.push({
+        filePath: `remote_settings[${index}]`,
+        path: `/remote_settings/${index}/path`,
+        message: formatRemoteSettingsPathError(error),
+      });
+    }
+  }
+
+  return { plan: createSettingsLoadPlan(locations), issues };
+};
+
+const formatRemoteSettingsPathError = (error: unknown): string => {
+  /* v8 ignore next -- repository subpath validation throws Error instances. */
+  if (!(error instanceof Error)) {
+    return String(error);
+  }
+
+  return error.message;
+};
+
+interface SettingsLocationDiscoveryResult {
+  readonly plan: SettingsLoadPlan;
+  readonly issues: readonly SettingsLoadIssue[];
+}
 
 const addSettingsFile = (
   location: SettingsLocation,

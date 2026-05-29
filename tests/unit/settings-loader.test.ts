@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { createRemoteRepositoryCachePath } from '../../src/profiles/ProfileCache.js';
 import {
   createSettingsLoadPlan,
+  discoverRemoteSettingsLoadPlan,
   discoverSettingsLoadPlan,
   loadSettings,
   loadSettingsFiles,
@@ -171,6 +172,38 @@ describe('settings loading', () => {
     const localOverrideLoaded = loadSettingsWithCachedRemoteSettings({ homeDirectory, projectDirectory });
     expect(localOverrideLoaded.settings.profileSources).toEqual([
       { path: join(homeDirectory, '.bridl', 'local-profiles') },
+    ]);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-002.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('reports invalid cached remote settings subpaths as settings issues', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    writeSettings(
+      join(homeDirectory, '.bridl', 'settings.yml'),
+      'remote_settings:\n  - github: example/absolute\n    path: /tmp/settings.yml\n  - github: example/escape\n    path: ../settings.yml\n',
+    );
+
+    const loaded = loadSettingsWithCachedRemoteSettings({ homeDirectory, projectDirectory });
+    const invalidPlan = discoverRemoteSettingsLoadPlan(homeDirectory, [
+      { github: 'example/absolute', path: '/tmp/settings.yml' },
+    ]);
+
+    expect(invalidPlan.locations).toEqual([]);
+    expect(loaded.files.map((file) => file.location.scope)).toEqual(['user']);
+    expect(loaded.issues).toEqual([
+      {
+        filePath: 'remote_settings[0]',
+        path: '/remote_settings/0/path',
+        message: "Remote repository path '/tmp/settings.yml' must be relative.",
+      },
+      {
+        filePath: 'remote_settings[1]',
+        path: '/remote_settings/1/path',
+        message: "Remote repository path '../settings.yml' must stay inside the repository.",
+      },
     ]);
   });
 });
