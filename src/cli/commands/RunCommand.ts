@@ -9,7 +9,11 @@ import spawn from 'cross-spawn';
 
 import type { AgentAdapter, AgentLaunchPlan } from '../../agents/AgentAdapter.js';
 import { createPiAdapter } from '../../agents/pi/PiAdapter.js';
-import { createProfileSourceCachePath, createRemoteRepositoryCachePath } from '../../profiles/ProfileCache.js';
+import {
+  createProfileSourceCachePath,
+  createRemoteRepositoryCachePath,
+  resolveRemoteRepositorySubpath,
+} from '../../profiles/ProfileCache.js';
 import { loadLocalProfileSource } from '../../profiles/ProfileLoader.js';
 import type { LoadedProfile } from '../../profiles/ProfileLoader.js';
 import type { Profile } from '../../profiles/Profile.js';
@@ -237,7 +241,7 @@ const materializeSource = (homeDirectory: string, source: ProfileSourceReference
   }
 
   return {
-    path: join(createRemoteRepositoryCachePath(homeDirectory, source), source.path ?? ''),
+    path: resolveRemoteRepositorySubpath(createRemoteRepositoryCachePath(homeDirectory, source), source.path),
     only: source.only,
     except: source.except,
   };

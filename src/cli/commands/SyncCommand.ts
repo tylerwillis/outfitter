@@ -1,7 +1,7 @@
 // Provides the command object for synchronizing URI-backed profile and settings sources.
 import { existsSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname, resolve } from 'node:path';
+import { dirname } from 'node:path';
 
 import type { Command } from 'commander';
 import spawn from 'cross-spawn';
@@ -11,6 +11,7 @@ import {
   createRemoteRepositoryCachePath,
   normalizeGitUri,
   redactProfileSourceUriCredentials,
+  resolveRemoteRepositorySubpath,
 } from '../../profiles/ProfileCache.js';
 import { loadLocalProfileSource } from '../../profiles/ProfileLoader.js';
 import {
@@ -128,8 +129,8 @@ const syncRemoteSettingsSource = (
   const displayUri = formatDisplayUri(source);
 
   try {
+    const settingsPath = resolveRemoteRepositorySubpath(cachePath, source.path);
     const status = synchronizer.sync(source, cachePath);
-    const settingsPath = resolve(cachePath, source.path);
 
     if (!existsSync(settingsPath)) {
       return {
@@ -155,9 +156,10 @@ const syncUriSource = (
   const displayUri = formatDisplayUri(source);
 
   try {
+    const profileSourcePath = resolveRemoteRepositorySubpath(cachePath, source.path);
     const status = synchronizer.sync(source, cachePath);
     const validation = loadLocalProfileSource({
-      path: resolve(cachePath, source.path ?? ''),
+      path: profileSourcePath,
       only: source.only,
       except: source.except,
     });
@@ -189,26 +191,35 @@ const createGitSynchronizer = (): UriProfileSourceSynchronizer => ({
 
     if (existsSync(cachePath)) {
       runGit(['-C', cachePath, 'fetch', '--all', '--tags']);
-      checkoutRefIfPresent(cachePath, source.ref);
-      runGit(['-C', cachePath, 'pull', '--ff-only']);
+      if (source.ref === undefined) {
+        runGit(['-C', cachePath, 'pull', '--ff-only']);
+      } else {
+        checkoutRefIfPresent(cachePath, source.ref);
+      }
       return 'updated';
     }
 
-    const cloneArgs = ['clone'];
-    if (source.ref !== undefined) {
-      cloneArgs.push('--branch', source.ref);
-    }
-    cloneArgs.push(normalizeGitUri(normalizeRemoteSourceUri(source)), cachePath);
-    runGit(cloneArgs);
+    runGit(['clone', normalizeGitUri(normalizeRemoteSourceUri(source)), cachePath]);
+    checkoutRefIfPresent(cachePath, source.ref);
     return 'updated';
   },
 });
 
 const checkoutRefIfPresent = (cachePath: string, ref: string | undefined): void => {
-  if (ref !== undefined) {
-    runGit(['-C', cachePath, 'checkout', ref]);
+  if (ref === undefined) {
+    return;
   }
+
+  if (gitSucceeds(['-C', cachePath, 'rev-parse', '--verify', '--quiet', `refs/remotes/origin/${ref}`])) {
+    runGit(['-C', cachePath, 'checkout', '-B', ref, `refs/remotes/origin/${ref}`]);
+    return;
+  }
+
+  runGit(['-C', cachePath, 'checkout', ref]);
 };
+
+const gitSucceeds = (args: readonly string[]): boolean =>
+  spawn.sync('git', args, { stdio: 'pipe', encoding: 'utf8' }).status === 0;
 
 const runGit = (args: readonly string[]): void => {
   const result = spawn.sync('git', args, { stdio: 'pipe', encoding: 'utf8' });

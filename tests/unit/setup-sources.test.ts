@@ -50,7 +50,7 @@ afterEach(() => {
 });
 
 describe('setup sources', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-004.7).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-004.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('fetches setup source repositories with the default git synchronizer', () => {
     const root = createTemporaryRoot();
@@ -109,7 +109,7 @@ describe('setup sources', () => {
         projectDirectory,
         setupSourceUri: join(root, 'missing-source'),
       }),
-    ).toThrow();
+    ).toThrow('does not exist');
     expect(() =>
       executeSetupCommand({
         homeDirectory: invalidHomeDirectory,

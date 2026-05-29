@@ -1,5 +1,5 @@
 // Encodes remote profile/source cache paths.
-import { join } from 'node:path';
+import { isAbsolute, join, relative, resolve } from 'node:path';
 
 import { normalizeRemoteSourceUri, type RemoteSourceReference } from './ProfileSource.js';
 
@@ -14,6 +14,21 @@ export const createProfileSourceCachePath = (homeDirectory: string, uri: string)
 
 export const createRemoteRepositoryCachePath = (homeDirectory: string, source: RemoteSourceReference): string =>
   join(homeDirectory, '.bridl', 'cache', 'repos', encodeRemoteSource(source));
+
+export const resolveRemoteRepositorySubpath = (repositoryPath: string, subpath = ''): string => {
+  if (isAbsolute(subpath)) {
+    throw new Error(`Remote repository path '${subpath}' must be relative.`);
+  }
+
+  const resolvedPath = resolve(repositoryPath, subpath);
+  const relativePath = relative(repositoryPath, resolvedPath);
+
+  if (relativePath.startsWith('..') || isAbsolute(relativePath)) {
+    throw new Error(`Remote repository path '${subpath}' must stay inside the repository.`);
+  }
+
+  return resolvedPath;
+};
 
 export const redactProfileSourceUriCredentials = (uri: string): string => {
   const prefix = uri.startsWith('git+') ? 'git+' : '';
