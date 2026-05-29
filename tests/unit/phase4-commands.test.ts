@@ -82,7 +82,7 @@ describe('phase 4 setup and sync commands', () => {
       'default_profile: default\nprofile_sources:\n  - path: ./profiles\n',
     );
     expect(readFileSync(defaultProfilePath, 'utf8')).toBe('id: default\nlabel: Default\ncontrols: {}\n');
-    expect(firstResult.messages).toContain('No URI profile sources configured; nothing to sync.');
+    expect(firstResult.messages).toContain('No URI profile or remote settings sources configured; nothing to sync.');
 
     writeFileSync(defaultProfilePath, 'id: default\nlabel: Custom\n');
     const secondResult = executeSetupCommand({ homeDirectory, projectDirectory });
@@ -345,6 +345,8 @@ describe('phase 4 setup and sync commands', () => {
     const failedUri = `file://${join(root, 'missing-repository')}`;
     writeSettings(homeDirectory, `profile_sources:\n  - uri: ${failedUri}\n`);
     const failedResult = executeSyncCommand({ homeDirectory, projectDirectory });
+    writeSettings(homeDirectory, `profile_sources:\n  - uri: ${uri}\n    ref: --bad\n    path: .\n`);
+    const unsafeRefResult = executeSyncCommand({ homeDirectory, projectDirectory });
 
     expect(firstResult.sources).toEqual([
       {
@@ -366,6 +368,8 @@ describe('phase 4 setup and sync commands', () => {
     ).toContain('label: Updated');
     expect(failedResult.sources[0]?.status).toBe('failed');
     expect(failedResult.sources[0]?.message).toContain('does not appear to be a git repository');
+    expect(unsafeRefResult.sources[0]?.status).toBe('failed');
+    expect(unsafeRefResult.sources[0]?.message).toContain("must not start with '-'");
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-004.2).
@@ -422,7 +426,7 @@ describe('phase 4 setup and sync commands', () => {
 
     writeSettings(homeDirectory, 'default_profile: default\n');
     expect(executeSyncCommand({ homeDirectory, projectDirectory }).messages).toEqual([
-      'No URI profile sources configured; nothing to sync.',
+      'No URI profile or remote settings sources configured; nothing to sync.',
     ]);
   });
 
@@ -521,7 +525,7 @@ describe('phase 4 setup and sync commands', () => {
       syncProgram,
     );
     await syncProgram.parseAsync(['node', 'bridl', 'sync']);
-    expect(syncMessages).toEqual(['No URI profile sources configured; nothing to sync.']);
+    expect(syncMessages).toEqual(['No URI profile or remote settings sources configured; nothing to sync.']);
 
     const setupMessages: string[] = [];
     const setupProgram = new Command();

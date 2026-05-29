@@ -85,7 +85,7 @@ export const executeSyncCommand = (
     sources: sourceResults,
     messages:
       sourceResults.length === 0
-        ? ['No URI profile sources configured; nothing to sync.']
+        ? ['No URI profile or remote settings sources configured; nothing to sync.']
         : sourceResults.map((result) => `${result.status}: ${result.uri} -> ${result.cachePath} (${result.message})`),
   };
 };
@@ -93,7 +93,7 @@ export const executeSyncCommand = (
 export const createSyncCommand = (dependencies: SyncCommandDependencies = {}): CommandObject => {
   const command: CommandObject = {
     name: 'sync',
-    description: 'Synchronize URI-backed Bridl profile sources into the local cache.',
+    description: 'Synchronize URI-backed Bridl profile and remote settings sources into the local cache.',
     register(program: Command): void {
       program
         .command(command.name)
@@ -128,8 +128,9 @@ const syncRemoteSettingsSource = (
   const cachePath = createRemoteRepositoryCachePath(homeDirectory, source);
   const displayUri = formatDisplayUri(source);
 
+  const settingsPath = resolveRemoteRepositorySubpath(cachePath, source.path);
+
   try {
-    const settingsPath = resolveRemoteRepositorySubpath(cachePath, source.path);
     const status = synchronizer.sync(source, cachePath);
 
     if (!existsSync(settingsPath)) {
@@ -199,7 +200,7 @@ const createGitSynchronizer = (): UriProfileSourceSynchronizer => ({
       return 'updated';
     }
 
-    runGit(['clone', normalizeGitUri(normalizeRemoteSourceUri(source)), cachePath]);
+    runGit(['clone', '--', normalizeGitUri(normalizeRemoteSourceUri(source)), cachePath]);
     checkoutRefIfPresent(cachePath, source.ref);
     return 'updated';
   },
@@ -210,12 +211,20 @@ const checkoutRefIfPresent = (cachePath: string, ref: string | undefined): void 
     return;
   }
 
+  assertSafeGitRef(ref);
+
   if (gitSucceeds(['-C', cachePath, 'rev-parse', '--verify', '--quiet', `refs/remotes/origin/${ref}`])) {
     runGit(['-C', cachePath, 'checkout', '-B', ref, `refs/remotes/origin/${ref}`]);
     return;
   }
 
   runGit(['-C', cachePath, 'checkout', ref]);
+};
+
+const assertSafeGitRef = (ref: string): void => {
+  if (ref.startsWith('-')) {
+    throw new Error(`Git ref '${ref}' must not start with '-'.`);
+  }
 };
 
 const gitSucceeds = (args: readonly string[]): boolean =>
