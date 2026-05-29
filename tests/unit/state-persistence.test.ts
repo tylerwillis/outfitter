@@ -7,6 +7,7 @@ import {
   readFileSync,
   readlinkSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -14,6 +15,7 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { createPiAdapter } from '../../src/agents/pi/PiAdapter.js';
 import { executeRunCommand } from '../../src/cli/commands/RunCommand.js';
 import { parseProfileYaml } from '../../src/profiles/ProfileLoader.js';
 import {
@@ -80,7 +82,15 @@ describe('state persistence', () => {
     writeProfile(
       profilesDirectory,
       'default',
-      ['id: default', 'state_persistence:', '  cache/: warn', '  unknown: warn', 'controls: {}', ''].join('\n'),
+      [
+        'id: default',
+        'state_persistence:',
+        '  cache/: warn',
+        '  mcp.json: prompt',
+        '  unknown: warn',
+        'controls: {}',
+        '',
+      ].join('\n'),
     );
     mkdirSync(join(profilesDirectory, 'default', 'cli_specific', 'pi'), { recursive: true });
     mkdirSync(join(homeDirectory, '.pi', 'agent'), { recursive: true });
@@ -100,6 +110,7 @@ describe('state persistence', () => {
             expect(readlinkSync(join(tackPiDirectory, 'auth.json'))).toBe(nativeAuthPath);
             writeFileSync(join(tackPiDirectory, 'settings.json'), '{"theme":"light"}\n');
             writeFileSync(join(tackPiDirectory, 'cache', 'entry.txt'), 'discarded cache\n');
+            writeFileSync(join(tackPiDirectory, 'mcp.json'), '{"servers":{}}\n');
             writeFileSync(join(tackPiDirectory, 'unexpected.txt'), 'unknown write\n');
             return Promise.resolve(0);
           },
@@ -109,6 +120,7 @@ describe('state persistence', () => {
 
     expect(readFileSync(settingsPath, 'utf8')).toBe('{"theme":"light"}\n');
     expect(result.warnings).toContain("pi wrote 'cache/' with state_persistence 'warn' and it was not persisted.");
+    expect(result.warnings).toContain("pi wrote 'mcp.json' with state_persistence 'prompt' and it was not persisted.");
     expect(result.warnings).toContain("pi wrote undeclared tack state 'unexpected.txt' and it was not persisted.");
     expect(warnings).toEqual(result.warnings);
   });
@@ -166,7 +178,47 @@ describe('state persistence', () => {
     expect(() =>
       materializeTackStatePath(root, { relativePath: 'bad.json', strategy: 'symlink', directory: false }),
     ).toThrow('uses symlink without a source path');
+    symlinkSync(join(root, 'deleted-target.json'), join(root, 'broken.json'));
+    materializeTackStatePath(root, {
+      relativePath: 'broken.json',
+      strategy: 'symlink',
+      sourcePath: sourceFile,
+      directory: false,
+    });
+    expect(readlinkSync(join(root, 'broken.json'))).toBe(sourceFile);
     expect(createTackStateBaseline(join(root, 'missing')).fingerprints.size).toBe(0);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.6).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('resolves state sources using profile stack order rather than loaded folder order', () => {
+    const root = createTemporaryRoot();
+    const baseFolder = join(root, 'zbase');
+    const explicitFolder = join(root, 'alpha');
+    const baseSettings = join(baseFolder, 'cli_specific', 'pi', 'settings.json');
+    const explicitSettings = join(explicitFolder, 'cli_specific', 'pi', 'settings.json');
+    mkdirSync(join(baseFolder, 'cli_specific', 'pi'), { recursive: true });
+    mkdirSync(join(explicitFolder, 'cli_specific', 'pi'), { recursive: true });
+    writeFileSync(baseSettings, '{"source":"base"}\n');
+    writeFileSync(explicitSettings, '{"source":"explicit"}\n');
+
+    const tack = createPiAdapter().createTack(
+      {
+        id: 'alpha',
+        inherits: ['zbase'],
+        controls: {},
+      },
+      {
+        rootDirectory: join(root, 'tack'),
+        profilePaths: [join(baseFolder, 'profile.yml'), join(explicitFolder, 'profile.yml')],
+        profileFolders: [baseFolder, explicitFolder],
+        homeDirectory: join(root, 'home'),
+      },
+    ).tack;
+
+    expect(tack.statePaths.find((statePath) => statePath.relativePath === 'settings.json')?.sourcePath).toBe(
+      explicitSettings,
+    );
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-005.6).
