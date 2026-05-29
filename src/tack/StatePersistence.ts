@@ -115,13 +115,27 @@ const materializeSymlink = (
   const outputPath = resolveTackStateOutputPath(rootDirectory, relativePath);
   mkdirSync(dirname(outputPath), { recursive: true });
 
-  /* v8 ignore next -- repeat materialization cleanup is defensive for live tack rewrites. */
-  if (existsSync(outputPath)) {
+  if (pathLexicallyExists(outputPath)) {
     unlinkSync(outputPath);
   }
 
   ensureStateSourcePath(sourcePath, directory);
   symlinkSync(sourcePath, outputPath, directory ? 'dir' : 'file');
+};
+
+const pathLexicallyExists = (path: string): boolean => {
+  try {
+    lstatSync(path);
+    return true;
+  } catch (error) {
+    /* v8 ignore next -- non-ENOENT lstat failures should surface as actionable filesystem errors. */
+    if (isNodeError(error) && error.code === 'ENOENT') {
+      return false;
+    }
+
+    /* v8 ignore next -- non-ENOENT lstat failures should surface as actionable filesystem errors. */
+    throw error;
+  }
 };
 
 const fingerprintTree = (rootDirectory: string): ReadonlyMap<string, string> => {
@@ -196,3 +210,5 @@ const normalizeStateRelativePath = (relativePath: string): string =>
 
 const isUserWritePath = (relativePath: string): boolean =>
   relativePath !== 'bridl' && !relativePath.startsWith(`bridl${sep}`);
+
+const isNodeError = (error: unknown): error is NodeJS.ErrnoException => error instanceof Error && 'code' in error;

@@ -273,9 +273,7 @@ const findContributingLoadedProfiles = (
   profileStack: readonly Profile[],
   loadedProfiles: readonly LoadedProfile[],
 ): readonly LoadedProfile[] =>
-  profileStack
-    .map((profile) => loadedProfiles.find((loadedProfile) => loadedProfile.profile.id === profile.id))
-    .filter((loadedProfile): loadedProfile is LoadedProfile => loadedProfile !== undefined);
+  profileStack.flatMap((profile) => loadedProfiles.filter((loadedProfile) => loadedProfile.profile.id === profile.id));
 
 const loadProfileSources = (
   homeDirectory: string,
