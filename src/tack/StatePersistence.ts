@@ -57,8 +57,11 @@ export const materializeTackStatePath = (rootDirectory: string, statePath: TackS
   }
 };
 
-export const createTackStateBaseline = (rootDirectory: string): TackStateBaseline => ({
-  fingerprints: fingerprintTree(rootDirectory),
+export const createTackStateBaseline = (
+  rootDirectory: string,
+  statePaths: readonly TackStatePath[] = [],
+): TackStateBaseline => ({
+  fingerprints: fingerprintTree(rootDirectory, createDiscardStatePathSet(statePaths)),
 });
 
 export const updateTackStateBaselinePaths = (
@@ -66,18 +69,12 @@ export const updateTackStateBaselinePaths = (
   baseline: TackStateBaseline,
   outputPaths: readonly string[],
 ): TackStateBaseline => {
-  const current = fingerprintTree(rootDirectory);
   const fingerprints = new Map(baseline.fingerprints);
 
   for (const outputPath of outputPaths) {
     const relativePath = normalizeTackRelativePath(rootDirectory, outputPath);
-    const fingerprint = current.get(relativePath);
-
-    if (fingerprint === undefined) {
-      fingerprints.delete(relativePath);
-    } else {
-      fingerprints.set(relativePath, fingerprint);
-    }
+    deleteFingerprintSubtree(fingerprints, relativePath);
+    addPathFingerprints(rootDirectory, relativePath, fingerprints, new Set());
   }
 
   return { fingerprints };
@@ -88,7 +85,7 @@ export const detectTackStateWrites = (
   statePaths: readonly TackStatePath[],
   baseline: TackStateBaseline,
 ): readonly TackStateWriteIssue[] => {
-  const current = fingerprintTree(rootDirectory);
+  const current = fingerprintTree(rootDirectory, createDiscardStatePathSet(statePaths));
   const changedPaths = [...new Set([...current.keys(), ...baseline.fingerprints.keys()])].filter(
     (path) => current.get(path) !== baseline.fingerprints.get(path),
   );
@@ -191,17 +188,41 @@ const pathLexicallyExists = (path: string): boolean => {
   }
 };
 
-const fingerprintTree = (rootDirectory: string): ReadonlyMap<string, string> => {
+const fingerprintTree = (
+  rootDirectory: string,
+  skippedRelativePaths: ReadonlySet<string> = new Set(),
+): ReadonlyMap<string, string> => {
   const fingerprints = new Map<string, string>();
 
-  if (existsSync(rootDirectory)) {
-    addFingerprint(rootDirectory, '', fingerprints);
-  }
+  addPathFingerprints(rootDirectory, '', fingerprints, skippedRelativePaths);
 
   return fingerprints;
 };
 
-const addFingerprint = (absolutePath: string, relativePath: string, fingerprints: Map<string, string>): void => {
+const addPathFingerprints = (
+  rootDirectory: string,
+  relativePath: string,
+  fingerprints: Map<string, string>,
+  skippedRelativePaths: ReadonlySet<string>,
+): void => {
+  const absolutePath =
+    relativePath === '' ? rootDirectory : resolveTackRelativePath(rootDirectory, relativePath, 'Tack path');
+
+  if (existsSync(absolutePath)) {
+    addFingerprint(absolutePath, relativePath, fingerprints, skippedRelativePaths);
+  }
+};
+
+const addFingerprint = (
+  absolutePath: string,
+  relativePath: string,
+  fingerprints: Map<string, string>,
+  skippedRelativePaths: ReadonlySet<string>,
+): void => {
+  if (shouldSkipFingerprint(relativePath, skippedRelativePaths)) {
+    return;
+  }
+
   const stat = lstatSync(absolutePath);
 
   if (stat.isSymbolicLink()) {
@@ -210,10 +231,7 @@ const addFingerprint = (absolutePath: string, relativePath: string, fingerprints
   }
 
   if (relativePath !== '') {
-    fingerprints.set(
-      relativePath,
-      stat.isDirectory() ? 'dir' : `file:${readFileSync(absolutePath).toString('base64')}`,
-    );
+    fingerprints.set(relativePath, createEntryFingerprint(absolutePath, stat));
   }
 
   if (stat.isDirectory()) {
@@ -222,7 +240,42 @@ const addFingerprint = (absolutePath: string, relativePath: string, fingerprints
         join(absolutePath, entryName),
         relativePath === '' ? entryName : `${relativePath}${posixSeparator}${entryName}`,
         fingerprints,
+        skippedRelativePaths,
       );
+    }
+  }
+};
+
+const createEntryFingerprint = (absolutePath: string, stat: ReturnType<typeof lstatSync>): string => {
+  if (stat.isDirectory()) {
+    return 'dir';
+  }
+
+  if (stat.isFile()) {
+    return `file:${readFileSync(absolutePath).toString('base64')}`;
+  }
+
+  return `special:${stat.mode}:${stat.rdev}`;
+};
+
+const shouldSkipFingerprint = (relativePath: string, skippedRelativePaths: ReadonlySet<string>): boolean =>
+  relativePath !== '' &&
+  [...skippedRelativePaths].some(
+    (skippedRelativePath) =>
+      relativePath === skippedRelativePath || relativePath.startsWith(`${skippedRelativePath}${posixSeparator}`),
+  );
+
+const createDiscardStatePathSet = (statePaths: readonly TackStatePath[]): ReadonlySet<string> =>
+  new Set(
+    statePaths
+      .filter((statePath) => statePath.strategy === 'discard' && statePath.relativePath !== 'unknown')
+      .map((statePath) => normalizeStateRelativePath(statePath.relativePath)),
+  );
+
+const deleteFingerprintSubtree = (fingerprints: Map<string, string>, relativePath: string): void => {
+  for (const fingerprintPath of [...fingerprints.keys()]) {
+    if (fingerprintPath === relativePath || fingerprintPath.startsWith(`${relativePath}${posixSeparator}`)) {
+      fingerprints.delete(fingerprintPath);
     }
   }
 };

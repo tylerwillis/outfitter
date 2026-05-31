@@ -74,7 +74,7 @@ export const executeRunCommand = async (
   emitWarnings(warnings, dependencies.writeError);
 
   writeTack(tackPlan.tack);
-  let stateBaseline = createTackStateBaseline(tackPlan.tack.rootDirectory);
+  let stateBaseline = createTackStateBaseline(tackPlan.tack.rootDirectory, tackPlan.tack.statePaths);
   const launchPlan = adapter.createLaunchPlan(tackPlan.tack, resolvedProfile.profile, input.passThroughArgs ?? []);
   const watcher = watchTackInputs({
     tack: tackPlan.tack,

@@ -1,4 +1,5 @@
 // Tests state-write accounting when live tack updates regenerate files.
+import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -127,6 +128,48 @@ describe('live tack update state accounting', () => {
     ).toEqual([{ relativePath: 'generated.txt', strategy: 'warn', unknown: true }]);
     expect(
       detectTackStateWrites(root, [{ relativePath: 'unknown', strategy: 'warn', directory: false }], updatedBaseline),
+    ).toEqual([]);
+  });
+
+  it('fingerprints special state entries without reading them as files', () => {
+    const root = createTemporaryRoot();
+    const pipePath = join(root, 'cache', 'pipe');
+    mkdirSync(join(root, 'cache'), { recursive: true });
+    const baseline = createTackStateBaseline(root);
+
+    execFileSync('mkfifo', [pipePath]);
+
+    expect(
+      detectTackStateWrites(root, [{ relativePath: 'cache/', strategy: 'warn', directory: true }], baseline),
+    ).toEqual([{ relativePath: 'cache/', strategy: 'warn', unknown: false }]);
+  });
+
+  it('skips discard state subtrees while creating and comparing snapshots', () => {
+    const root = createTemporaryRoot();
+    const pipePath = join(root, 'cache', 'pipe');
+    const statePaths = [
+      { relativePath: 'cache/', strategy: 'discard' as const, directory: true },
+      { relativePath: 'unknown', strategy: 'warn' as const, directory: false },
+    ];
+    mkdirSync(join(root, 'cache'), { recursive: true });
+    writeFileSync(join(root, 'discarded.txt'), 'before\n');
+    execFileSync('mkfifo', [pipePath]);
+
+    const baseline = createTackStateBaseline(root, statePaths);
+    writeFileSync(join(root, 'outside.txt'), 'reported\n');
+
+    expect(detectTackStateWrites(root, statePaths, baseline)).toEqual([
+      { relativePath: 'outside.txt', strategy: 'warn', unknown: true },
+    ]);
+
+    const unfilteredBaseline = createTackStateBaseline(root);
+    writeFileSync(join(root, 'discarded.txt'), 'after\n');
+    expect(
+      detectTackStateWrites(
+        root,
+        [{ relativePath: 'discarded.txt', strategy: 'discard', directory: false }],
+        unfilteredBaseline,
+      ),
     ).toEqual([]);
   });
 });
