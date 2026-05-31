@@ -153,12 +153,14 @@ describe('state persistence', () => {
       directory: true,
     });
     materializeTackStatePath(root, { relativePath: 'cache/', strategy: 'prompt', directory: true });
+    materializeTackStatePath(root, { relativePath: 'logs/cache/', strategy: 'warn', directory: true });
     materializeTackStatePath(root, { relativePath: 'notes.txt', strategy: 'warn', directory: false });
     expect(existsSync(join(root, 'source', 'plugins'))).toBe(true);
     expect(lstatSync(join(root, 'plugins')).isSymbolicLink()).toBe(true);
     const baseline = createTackStateBaseline(root);
 
     writeFileSync(join(root, 'cache', 'entry.txt'), 'changed\n');
+    writeFileSync(join(root, 'logs', 'cache', 'entry.txt'), 'changed\n');
     writeFileSync(join(root, 'notes.txt'), 'changed\n');
     mkdirSync(join(root, 'bridl'), { recursive: true });
     writeFileSync(join(root, 'bridl', 'profile.json'), '{}\n');
@@ -168,6 +170,7 @@ describe('state persistence', () => {
         root,
         [
           { relativePath: 'cache/', strategy: 'prompt', directory: true },
+          { relativePath: 'logs/cache/', strategy: 'warn', directory: true },
           { relativePath: 'notes.txt', strategy: 'warn', directory: false },
           { relativePath: 'unknown', strategy: 'discard', directory: false },
         ],
@@ -175,6 +178,7 @@ describe('state persistence', () => {
       ),
     ).toEqual([
       { relativePath: 'cache/', strategy: 'prompt', unknown: false },
+      { relativePath: 'logs/cache/', strategy: 'warn', unknown: false },
       { relativePath: 'notes.txt', strategy: 'warn', unknown: false },
     ]);
     expect(
