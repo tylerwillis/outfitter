@@ -12,6 +12,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { sep as posixSeparator } from 'node:path/posix';
 
 export type StatePersistenceStrategy = 'symlink' | 'discard' | 'warn' | 'error' | 'prompt';
 
@@ -197,7 +198,7 @@ const addFingerprint = (absolutePath: string, relativePath: string, fingerprints
     for (const entryName of readdirSync(absolutePath).sort()) {
       addFingerprint(
         join(absolutePath, entryName),
-        relativePath === '' ? entryName : join(relativePath, entryName),
+        relativePath === '' ? entryName : `${relativePath}${posixSeparator}${entryName}`,
         fingerprints,
       );
     }
@@ -232,13 +233,13 @@ const shouldReportStatePathChange = (changedPath: string, statePath: TackStatePa
 const isWithinStatePath = (changedPath: string, statePath: TackStatePath): boolean => {
   const stateRelativePath = normalizeStateRelativePath(statePath.relativePath);
 
-  return changedPath === stateRelativePath || changedPath.startsWith(`${stateRelativePath}${sep}`);
+  return changedPath === stateRelativePath || changedPath.startsWith(`${stateRelativePath}${posixSeparator}`);
 };
 
 const normalizeStateRelativePath = (relativePath: string): string =>
   relativePath.endsWith('/') ? relativePath.slice(0, -1) : relativePath;
 
 const isUserWritePath = (relativePath: string): boolean =>
-  relativePath !== 'bridl' && !relativePath.startsWith(`bridl${sep}`);
+  relativePath !== 'bridl' && !relativePath.startsWith(`bridl${posixSeparator}`);
 
 const isNodeError = (error: unknown): error is NodeJS.ErrnoException => error instanceof Error && 'code' in error;
