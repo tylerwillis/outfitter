@@ -49,6 +49,7 @@ Runtime dependencies in the first `package.json`:
 - `ajv`: JSON Schema validation at file-read boundaries.
 - `typebox`: Type-friendly schema definitions and schema-derived types where useful.
 - `defu`: controlled deep merging for settings and profiles.
+- `liquidjs`: safe Bridl-time tack templating with custom delimiters that avoid common agent template syntaxes.
 - `cross-spawn`: portable child process launch for agent CLIs.
 - `glob`: profile/resource discovery.
 - `hosted-git-info`: parsing hosted git URIs for sync/cache handling; pinned to the latest line compatible with Node `>=22.19.0`.
@@ -168,6 +169,67 @@ Rules:
 - Remote `uri` and `github` profile sources can specify `ref` and repository-subdirectory `path` values.
 - `remote_settings` entries point at settings-style YAML files inside synced remote repositories.
 - `uri`, `github`, and `remote_settings` sources are fetched/cached by `bridl sync`.
+- `custom_settings` may contain arbitrary YAML-compatible nested data. Bridl deep-merges custom settings objects using normal settings precedence; arrays and scalar values are replaced by the higher-precedence settings layer.
+
+## Tack Template Rendering
+
+Bridl renders Bridl-time templates in generated tack files after profile and settings resolution and before writing the tack directory to disk. Source settings files are never rewritten.
+
+Bridl uses LiquidJS with custom delimiters rather than common `{{ ... }}` / `{% ... %}` delimiters so templates do not collide with common agent prompt, skill, command, Handlebars, Mustache, Jinja, or Claude Code syntaxes.
+
+Canonical delimiters:
+
+```text
+[[= expression ]]  output expression
+[[% tag %]]        Liquid control tag, such as if, for, endif, or endfor
+```
+
+Bridl only treats `[[=` and `[[%` as template openers, so plain shell or Bash expressions such as `[[ -f package.json ]]` pass through unchanged.
+
+Template context:
+
+```yaml
+bridl:
+  custom_settings: # resolved settings.custom_settings
+  settings: # resolved settings using YAML-style key names
+  profile: # resolved profile object
+  agent: pi
+  project:
+    root: /absolute/project/root
+```
+
+Example:
+
+```yaml
+# settings.yml
+custom_settings:
+  build_commands:
+    lint: npm run lint
+    test: npm test
+```
+
+```yaml
+# any generated tack settings file containing Bridl template delimiters
+hooks:
+  lint:
+    command: "[[= bridl.custom_settings.build_commands.lint ]]"
+
+[[% if bridl.custom_settings.build_commands.test %]]
+  test:
+    command: "[[= bridl.custom_settings.build_commands.test ]]"
+[[% endif %]]
+```
+
+Liquid loops and filters are available with the same custom tag and output delimiters:
+
+```yaml
+commands:
+[[% for command in bridl.custom_settings.commands %]]
+  - "[[= command ]]"
+[[% endfor %]]
+```
+
+Undefined variables and unknown filters are template errors. Template errors identify the tack file being rendered and stop tack assembly.
 
 ## Profile Sources and Sync
 

@@ -133,6 +133,41 @@ describe('settings loading', () => {
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (BRIDL-REQ-002.7).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('loads and deep-merges arbitrary custom settings with higher-precedence overrides', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    writeSettings(
+      join(homeDirectory, '.bridl', 'settings.yml'),
+      [
+        'custom_settings:',
+        '  build_commands:',
+        '    lint: npm run lint',
+        '    test: npm test',
+        '  tools:',
+        '    - eslint',
+        '',
+      ].join('\n'),
+    );
+    writeSettings(
+      join(projectDirectory, '.bridl', 'settings.yml'),
+      ['custom_settings:', '  build_commands:', '    lint: npm run lint:ci', '  tools:', '    - prettier', ''].join(
+        '\n',
+      ),
+    );
+
+    const loaded = loadSettings(discoverSettingsLoadPlan({ homeDirectory, projectDirectory }));
+
+    expect(loaded.issues).toEqual([]);
+    expect(loaded.settings.customSettings).toEqual({
+      build_commands: {
+        lint: 'npm run lint:ci',
+        test: 'npm test',
+      },
+      tools: ['prettier'],
+    });
+  });
+
   it('resolves configured cache directories relative to the containing settings file', () => {
     const root = createTemporaryRoot();
     const settingsPath = join(root, '.bridl', 'settings.yml');
