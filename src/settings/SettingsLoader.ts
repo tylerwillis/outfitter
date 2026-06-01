@@ -7,7 +7,7 @@ import type { ProfileSourceReference } from '../profiles/ProfileSource.js';
 import type { ValidationIssue } from '../validation/SchemaValidator.js';
 import { validateSchema } from '../validation/SchemaValidator.js';
 import { parseYamlDocument } from '../validation/YamlDocument.js';
-import type { RemoteSettingsReference, Settings } from './Settings.js';
+import type { CustomSettings, RemoteSettingsReference, Settings } from './Settings.js';
 import { mergeSettingsStack } from './SettingsMerger.js';
 
 export interface SettingsLocation {
@@ -42,6 +42,7 @@ interface SettingsDocument {
   readonly profile_sources?: readonly ProfileSourceDocument[];
   readonly remote_settings?: readonly RemoteSettingsDocument[];
   readonly cache_directory?: string;
+  readonly custom_settings?: CustomSettings;
 }
 
 interface ProfileSourceDocument {
@@ -199,6 +200,7 @@ const convertSettingsDocument = (document: SettingsDocument, settingsDirectory: 
     document.cache_directory === undefined
       ? undefined
       : resolveConfigDirectory(document.cache_directory, settingsDirectory),
+  customSettings: document.custom_settings,
 });
 
 const convertRemoteSettingsSource = (source: RemoteSettingsDocument): RemoteSettingsReference => {

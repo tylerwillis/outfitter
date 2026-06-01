@@ -105,7 +105,13 @@ describe('source layout scaffolding', () => {
         },
         { profileSources: [], remoteSettings: [] },
       ]),
-    ).toEqual({ profileSources: [], remoteSettings: [], defaultProfile: 'remote' });
+    ).toEqual({
+      profileSources: [],
+      remoteSettings: [],
+      defaultProfile: 'remote',
+      cacheDirectory: undefined,
+      customSettings: {},
+    });
     expect(normalizeRemoteSourceUri({ github: 'example/bridl-config' })).toBe(
       'git+https://github.com/example/bridl-config.git',
     );

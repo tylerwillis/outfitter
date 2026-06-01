@@ -26,6 +26,10 @@
         },
         "additionalProperties": false
       }
+    },
+    "custom_settings": {
+      "type": "object",
+      "description": "Arbitrary YAML-compatible values exposed to Bridl tack templates as bridl.custom_settings."
     }
   },
   "additionalProperties": true

@@ -52,6 +52,7 @@ Bridl is organized around clear TypeScript source boundaries, requirement docume
 │   │   ├── Tack.ts
 │   │   ├── TackAssembler.ts
 │   │   ├── TackFile.ts
+│   │   ├── TackTemplate.ts
 │   │   ├── TackWatcher.ts
 │   │   └── StatePersistence.ts
 │   ├── agents/                        # agent adapter boundary and CLI-specific adapters
