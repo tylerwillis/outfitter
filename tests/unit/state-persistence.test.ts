@@ -165,7 +165,7 @@ describe('state persistence', () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const tack = createPiAdapter().createTack(
-      { id: 'default', controls: {} },
+      { id: 'default', inherits: [], controls: {} },
       {
         rootDirectory: join(root, 'tack'),
         profilePaths: [],
@@ -270,7 +270,7 @@ describe('state persistence', () => {
     const homeDirectory = join(root, 'home');
 
     const tack = createPiAdapter().createTack(
-      { id: 'default', controls: {} },
+      { id: 'default', inherits: [], controls: {} },
       {
         rootDirectory: join(root, 'tack'),
         profilePaths: [],

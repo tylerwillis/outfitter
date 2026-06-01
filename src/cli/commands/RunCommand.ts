@@ -19,8 +19,10 @@ import type { LoadedProfile } from '../../profiles/ProfileLoader.js';
 import type { Profile } from '../../profiles/Profile.js';
 import type { ProfileSourceReference } from '../../profiles/ProfileSource.js';
 import { resolveProfile } from '../../profiles/ProfileMerger.js';
+import type { Settings } from '../../settings/Settings.js';
 import { loadSettingsWithCachedRemoteSettings } from '../../settings/SettingsLoader.js';
 import { createTackRootDirectory, writeTack } from '../../tack/TackAssembler.js';
+import { renderTackTemplates } from '../../tack/TackTemplate.js';
 import {
   createTackStateBaseline,
   detectTackStateWrites,
@@ -172,6 +174,9 @@ interface ResolvedRunProfile {
   readonly profileFolders: readonly string[];
   readonly homeDirectory: string;
   readonly cacheDirectory: string;
+  readonly projectDirectory: string;
+  readonly settings: Settings;
+  readonly settingsPaths: readonly string[];
 }
 
 const failHardTackOnWarnings = (
@@ -192,14 +197,29 @@ const emitWarnings = (warnings: readonly string[], writeError: ((message: string
   }
 };
 
-const createAdapterTackPlan = (adapter: AgentAdapter, resolvedProfile: ResolvedRunProfile, rootDirectory: string) =>
-  adapter.createTack(resolvedProfile.profile, {
+const createAdapterTackPlan = (adapter: AgentAdapter, resolvedProfile: ResolvedRunProfile, rootDirectory: string) => {
+  const tackPlan = adapter.createTack(resolvedProfile.profile, {
     rootDirectory,
     profilePaths: resolvedProfile.profilePaths,
     profileFolders: resolvedProfile.profileFolders,
     homeDirectory: resolvedProfile.homeDirectory,
     cacheDirectory: resolvedProfile.cacheDirectory,
+    settings: resolvedProfile.settings,
+    projectDirectory: resolvedProfile.projectDirectory,
   });
+
+  return {
+    ...tackPlan,
+    tack: renderTackTemplates({
+      tack: tackPlan.tack,
+      settings: resolvedProfile.settings,
+      settingsPaths: resolvedProfile.settingsPaths,
+      profile: resolvedProfile.profile,
+      agentId: adapter.id,
+      projectDirectory: resolvedProfile.projectDirectory,
+    }),
+  };
+};
 
 const handleTackStateWrites = (
   adapterId: string,
@@ -274,6 +294,9 @@ const loadResolvedProfile = (input: RunCommandInput): ResolvedRunProfile => {
     profileFolders: findContributingProfileFolders(resolution.profileStack, loadedProfiles.profiles),
     homeDirectory: input.homeDirectory,
     cacheDirectory: loadedSettings.settings.cacheDirectory ?? join(input.homeDirectory, '.bridl', 'cache'),
+    projectDirectory: input.projectDirectory,
+    settings: loadedSettings.settings,
+    settingsPaths: loadedSettings.files.map((file) => file.location.path),
   };
 };
 

@@ -1,5 +1,6 @@
 // Defines the adapter contract for translating Bridl profiles to agent CLI launches.
 import type { Profile } from '../profiles/Profile.js';
+import type { Settings } from '../settings/Settings.js';
 import type { StatePathDeclaration } from '../tack/StatePersistence.js';
 import type { Tack } from '../tack/Tack.js';
 
@@ -26,6 +27,8 @@ export interface AgentAdapter {
       readonly profileFolders?: readonly string[];
       readonly homeDirectory?: string;
       readonly cacheDirectory?: string;
+      readonly settings?: Settings;
+      readonly projectDirectory?: string;
     },
   ): AgentTackPlan;
   createLaunchPlan(tack: Tack, profile?: Profile, passThroughArgs?: readonly string[]): AgentLaunchPlan;
