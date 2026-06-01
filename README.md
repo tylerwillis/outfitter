@@ -58,6 +58,22 @@ Run `bridl sync` to fetch/update remote settings and profiles before using them.
 
 By default, Bridl keeps reusable runtime cache files under `~/.bridl/cache`. Set `cache_directory` in `settings.yml` to choose a different cache root; relative values resolve from the settings file that declares them. The pi adapter symlinks tack `utilities/` and `bin/` paths into this cache so pi-managed utilities such as `fd` and `rg` survive across temporary tack directories.
 
+Settings can also define arbitrary nested `custom_settings` values for Bridl-time tack templating:
+
+```yaml
+custom_settings:
+  build_commands:
+    lint: npm run lint
+```
+
+Generated tack files can reference them with Bridl's LiquidJS-based custom delimiters:
+
+```yaml
+command: '[[= bridl.custom_settings.build_commands.lint ]]'
+```
+
+Control tags use `[[% ... %]]`, for example `[[% for item in bridl.custom_settings.items %]]`. Bridl intentionally does not use common `{{ ... }}` delimiters, and plain shell expressions like `[[ -f package.json ]]` are left alone.
+
 ## Setup from a settings repository
 
 You can bootstrap a machine from a Git repository:
