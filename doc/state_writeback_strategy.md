@@ -67,7 +67,8 @@ Bridl default profile
 ```
 
 Native CLI state is not represented as an extra profile layer.
-For `symlink` paths without a profile-provided source, the selected adapter resolves a native fallback location directly, such as `~/.pi/agent/...` for most Pi state paths or `<cache_directory>/utilities` for Pi `utilities/` and `bin/`.
+For `symlink` paths without a profile-provided source, the selected adapter resolves a native fallback location directly, such as `~/.pi/agent/...` for most Pi state paths, `~/.claude/...` for most Claude Code state paths, or `<cache_directory>/utilities` for Pi `utilities/` and `bin/`.
+Claude Code `projects/` is additionally controlled by `controls.session_directory` or `controls.claude.session_directory` when set.
 
 ## Path-keyed adapter declarations
 
@@ -124,6 +125,43 @@ state_paths:
     allowed_strategies: [discard, warn, error, prompt]
 ```
 
+The Claude Code adapter currently declares:
+
+```yaml
+state_paths:
+  settings.json:
+    default_strategy: symlink
+    allowed_strategies: [symlink, warn, error, prompt]
+
+  agents/:
+    default_strategy: symlink
+    allowed_strategies: [symlink, discard, warn, error, prompt]
+
+  skills/:
+    default_strategy: symlink
+    allowed_strategies: [symlink, discard, warn, error, prompt]
+
+  commands/:
+    default_strategy: symlink
+    allowed_strategies: [symlink, discard, warn, error, prompt]
+
+  plugins/:
+    default_strategy: symlink
+    allowed_strategies: [symlink, discard, warn, error, prompt]
+
+  projects/:
+    default_strategy: symlink
+    allowed_strategies: [symlink, discard, warn, error]
+
+  debug/:
+    default_strategy: symlink
+    allowed_strategies: [symlink, discard, warn, error]
+
+  unknown:
+    default_strategy: warn
+    allowed_strategies: [discard, warn, error, prompt]
+```
+
 ## Profile layout for state files
 
 State files live under the relevant CLI-specific profile folder:
@@ -137,9 +175,14 @@ profiles/
         auth.json
         settings.json
         plugins/
+      claude/
+        settings.json
+        skills/
+        commands/
+        plugins/
 ```
 
-Except for cache-backed utility paths described below, when a selected strategy is `symlink`, Bridl searches the resolved profile folders from highest to lowest precedence for `cli_specific/<adapter>/<state-path>`.
+Except for special adapter paths described below, when a selected strategy is `symlink`, Bridl searches the resolved profile folders from highest to lowest precedence for `cli_specific/<adapter>/<state-path>`.
 If a profile contains the file or directory, Bridl symlinks the tack path to that source.
 
 For most Pi paths, if no profile source exists, Bridl falls back to the corresponding native Pi agent path under `~/.pi/agent`.
@@ -147,6 +190,10 @@ Missing native fallback files/directories are created so the tack symlink has a 
 
 Pi `utilities/` and `bin/` are special cache-backed paths: both resolve to `<cache_directory>/utilities` instead of profile or native Pi state.
 This keeps pi-managed helper binaries reusable across temporary tacks without treating them as user-editable profile files.
+
+For most Claude Code paths, if no profile source exists, Bridl falls back to the corresponding native Claude Code path under `~/.claude`.
+Claude Code `projects/` is special: `controls.claude.session_directory` overrides generic `controls.session_directory`, and the selected session directory becomes the `projects/` symlink source.
+If neither session-directory control is present, `projects/` falls back to `~/.claude/projects`.
 
 ## `state_persistence`
 
