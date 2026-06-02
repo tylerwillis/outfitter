@@ -56,10 +56,16 @@ Bridl is organized around clear TypeScript source boundaries, requirement docume
 │   │   ├── TackWatcher.ts
 │   │   └── StatePersistence.ts
 │   ├── agents/                        # agent adapter boundary and CLI-specific adapters
+│   │   ├── AdapterProfileControls.ts
+│   │   ├── AdapterStatePaths.ts
 │   │   ├── AgentAdapter.ts
-│   │   └── pi/                        # pi-specific adapter implementation
-│   │       ├── PiAdapter.ts
-│   │       └── PiTackWriter.ts
+│   │   ├── AgentRegistry.ts
+│   │   ├── pi/                        # pi-specific adapter implementation
+│   │   │   ├── PiAdapter.ts
+│   │   │   └── PiTackWriter.ts
+│   │   └── claude/                    # Claude Code-specific adapter implementation
+│   │       ├── ClaudeAdapter.ts
+│   │       └── ClaudeTackWriter.ts
 │   ├── schemas/                       # JSON Schema artifacts for persisted formats
 │   │   ├── settings.schema.json
 │   │   ├── profile.schema.json
@@ -84,13 +90,11 @@ Scenario fixtures should live under `tests/fixtures/scenarios/`, for example:
 
 ```text
 tests/fixtures/scenarios/
-  user-default-only/
-  project-overrides-user/
-  project-local-overrides-project/
-  uri-source-with-filter/
+  profile-cycle/
   profile-inheritance-chain/
-  cli-specific-pi-overrides/
-  unsupported-control-warning/
+  profile-missing-inheritance/
+  profile-multiple-inheritance/
+  profile-precedence/
 ```
 
 Each scenario should include realistic `.bridl` folders and expected resolution output.

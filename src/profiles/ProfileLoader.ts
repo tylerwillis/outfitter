@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import type { ValidationIssue } from '../validation/SchemaValidator.js';
 import { validateSchema } from '../validation/SchemaValidator.js';
 import { parseYamlDocument } from '../validation/YamlDocument.js';
-import type { Profile, ProfileControls, StatePersistenceOverrides } from './Profile.js';
+import type { AgentSpecificProfileControls, Profile, ProfileControls, StatePersistenceOverrides } from './Profile.js';
 import type { ProfileSourceReference } from './ProfileSource.js';
 
 const profileIdPattern = /^[a-z0-9][a-z0-9._-]*[a-z0-9]$|^[a-z0-9]$/u;
@@ -187,11 +187,12 @@ const readControls = (value: unknown): ProfileControls => {
     promptTemplate: readOptionalString(controls.prompt_template),
     systemPrompt: readOptionalString(controls.system_prompt),
     appendSystemPrompt: readOptionalString(controls.append_system_prompt),
-    pi: readPiControls(controls.pi),
+    pi: readAgentSpecificControls(controls.pi),
+    claude: readAgentSpecificControls(controls.claude),
   });
 };
 
-const readPiControls = (value: unknown): ProfileControls['pi'] => {
+const readAgentSpecificControls = (value: unknown): AgentSpecificProfileControls | undefined => {
   const controls = readObject(value);
 
   if (controls === undefined) {
