@@ -36,6 +36,16 @@ const waitForFileMatching = async (path: string, predicate: (content: string) =>
   }
 };
 
+const waitForWarningContaining = async (warnings: readonly string[], content: string): Promise<void> => {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    if (warnings.some((warning) => warning.includes(content))) {
+      return;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+};
+
 afterEach(() => {
   for (const root of temporaryRoots.splice(0)) {
     rmSync(root, { recursive: true, force: true });
@@ -113,6 +123,34 @@ describe('composite profile input watching', () => {
       await waitForFileContent(join(staticOutputRoot, 'generated.txt'), 'static\n');
     } finally {
       staticHandle.close();
+    }
+
+    const unsafeInput = join(watchedDirectory, 'unsafe-profile.yml');
+    const unsafeOutputRoot = join(root, 'unsafe-compositeProfile');
+    writeFileSync(unsafeInput, 'initial\n');
+    const unsafeCompositeProfile = createCompositeProfile(unsafeOutputRoot, [
+      createCompositeProfileFile({ relativePath: 'generated.txt', content: 'safe\n', sourceInputs: [unsafeInput] }),
+    ]);
+    const unsafeHandle = watchCompositeProfileInputs({
+      compositeProfile: unsafeCompositeProfile,
+      refreshCompositeProfile: () =>
+        createCompositeProfile(unsafeOutputRoot, [
+          createCompositeProfileFile({
+            relativePath: '../escape.txt',
+            content: 'unsafe\n',
+            sourceInputs: [unsafeInput],
+          }),
+        ]),
+      warn: (message) => warnings.push(message),
+    });
+
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+      writeFileSync(unsafeInput, 'changed\n');
+      await waitForWarningContaining(warnings, 'Could not safely update compositeProfile from');
+      expect(warnings.some((warning) => warning.includes('must stay under compositeProfile root'))).toBe(true);
+    } finally {
+      unsafeHandle.close();
     }
   });
 });
