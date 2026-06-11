@@ -1,8 +1,15 @@
+_pre-launch | internal tool preview._
+
 # applepi
 
 `applepi` is intended to be a management wrapper for launching [`pi`](https://github.com/earendil-works/pi-coding-agent) and Claude Code with configurable, reusable profiles.
 
-The goal is manageable agent CLI configuration: organizations should be able to define standard pi or Claude Code loadouts, distribute them to their workforce, and launch agent CLIs consistently across teams, roles, projects, or environments.
+The goal is manageable agent CLI configuration: 
+- Organizations can define standard pi or claude loadouts, share them, and launch agent CLIs consistently across different environments.
+- Individuals can swap between configurations of their coding agent, share those, and easily migrate to new machines.
+
+If you haven't tried [Pi](https://pi.dev) yet — we think it's a great coding harness & ApplePi is an easy way to try it.
+- Install and run `applepi` to load pi with our standard configuration for engineers.
 
 ## Install
 
