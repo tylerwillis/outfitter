@@ -4,6 +4,34 @@
 
 The goal is manageable agent CLI configuration: organizations should be able to define standard pi or Claude Code loadouts, distribute them to their workforce, and launch agent CLIs consistently across teams, roles, projects, or environments.
 
+## Install
+
+### One-click setup with Claude Code
+
+If you have [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed, click this deep link to open a session pre-filled with a prompt that performs the full setup:
+
+[Set up applepi with Claude Code](claude-cli://open?q=Install%20applepi%20globally%3A%20clone%20https%3A%2F%2Fgithub.com%2Fapplepi-ai%2Fapplepi%20into%20a%20sensible%20location%20(e.g.%20~%2Frepos)%20unless%20I%20already%20have%20a%20checkout%2C%20run%20npm%20install%2C%20then%20npm%20run%20dev_install%20to%20build%20and%20npm-link%20the%20global%20applepi%20command.%20Verify%20applepi%20is%20on%20PATH.%20Then%20check%20whether%20the%20pi%20coding%20agent%20%28https%3A%2F%2Fgithub.com%2Fearendil-works%2Fpi-coding-agent%29%20is%20installed%3B%20if%20not%2C%20install%20it%20per%20its%20README.%20Report%20what%20was%20installed%20and%20any%20PATH%20changes%20I%20need.)
+
+Review the pre-filled prompt and press Enter to run it. (Note: GitHub's Markdown rendering strips `claude-cli://` links, so this link works in editors and other renderers but not on github.com.)
+
+### Manual install
+
+ApplePi is not yet published to npm, so install it from source:
+
+```bash
+git clone https://github.com/applepi-ai/applepi
+cd applepi
+npm install
+npm run dev_install
+```
+
+`npm run dev_install` builds the CLI and links it globally via `npm link`, so `applepi` is on your PATH and rebuilds in this checkout take effect immediately.
+
+ApplePi launches agent CLIs but does not install them. Install the agents you plan to use separately:
+
+- [pi](https://github.com/earendil-works/pi-coding-agent) — follow its installation instructions; the `pi` command must be on your PATH.
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — only needed if you launch with `--agent claude`.
+
 ## Why this exists
 
 Pi is highly configurable through settings directories, extensions, skills, prompts, themes, model settings, environment variables, and CLI flags.
