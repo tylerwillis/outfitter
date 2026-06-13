@@ -216,6 +216,90 @@ controls:
     TEAM_MODE: engineering
 ```
 
+<details>
+<summary>Full example profile with supported fields</summary>
+
+```yaml
+# Profile identity used by commands, logs, cache keys, and documentation.
+id: engineering
+label: Engineering
+
+# Optional ordered parent profiles. Parent controls are lower precedence than this profile.
+inherits:
+  - base-typescript
+
+# Optional per-state-path persistence overrides. Paths must be declared by the selected adapter.
+state_persistence:
+  settings.json: warn
+
+# Generic controls apply to every adapter unless an adapter-specific block overrides them.
+controls:
+  # Model/provider settings select the backing LLM and provider behavior.
+  model: anthropic/claude-sonnet-4
+  provider: anthropic
+  thinking: medium
+
+  # Extra CLI arguments and runtime directories for the selected adapter.
+  args:
+    - --some-arg
+  session_directory: ./sessions
+
+  # Profile-owned extensions, skills, and prompt resources.
+  extensions:
+    - npm:pi-subagents
+  skills:
+    - ./skills/debugging
+  prompt_template: ./prompts/template.md
+  system_prompt: ./prompts/system.md
+  append_system_prompt: ./prompts/company-policy.md
+
+  # Environment variables injected into the agent process.
+  environment:
+    TEAM_MODE: engineering
+
+  # Pi-specific controls override or extend the generic controls when running the pi adapter.
+  pi:
+    model: anthropic/claude-sonnet-4
+    provider: anthropic
+    thinking: medium
+    args:
+      - --thinking
+      - medium
+    session_directory: ./pi-sessions
+    extensions:
+      - git:github.com/applepi-ai/deepwork
+    skills:
+      - ./skills/pi-debugging
+    prompt_template: ./prompts/pi-template.md
+    system_prompt: ./prompts/pi-system.md
+    append_system_prompt: Pi-specific instructions
+    environment:
+      PI_TEAM_MODE: engineering
+
+  # Claude-specific controls override or extend the generic controls when running the claude adapter.
+  claude:
+    model: claude-sonnet-4
+    provider: anthropic
+    thinking: medium
+    args:
+      - --verbose
+    session_directory: ./claude-sessions
+    extensions:
+      - ./extensions/claude-bootstrap
+    skills:
+      - ./skills/claude-debugging
+    prompt_template: ./prompts/claude-template.md
+    system_prompt: ./prompts/claude-system.md
+    append_system_prompt: Claude-specific instructions
+    environment:
+      CLAUDE_TEAM_MODE: engineering
+```
+
+A profile is stored as `profile.yml` inside a profile directory, for example `profiles/engineering/profile.yml`.
+The complete schema is defined in `src/schemas/profile.schema.json`.
+
+</details>
+
 The exact stable schema is governed by the requirements in `requirements/` and the JSON Schema files in `src/schemas/`, which are still expected to evolve with implementation.
 
 ## Design direction
