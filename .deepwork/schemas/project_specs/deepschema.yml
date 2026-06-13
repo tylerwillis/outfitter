@@ -1,0 +1,52 @@
+summary: "Spec files: precise behavior and contracts that refine requirements."
+
+matchers:
+  - "**/specs/**/*.md"
+
+instructions: |
+  Spec files define precise behavior and contracts. A spec refines one or more
+  requirements into executable detail: behavior flows, state transitions,
+  interface contracts, data models, API shapes, edge cases, acceptance criteria,
+  and implementation handoff notes.
+
+  Specs live under a `specs/` directory (typically `docs/specs/<slug>/`) and may
+  include auxiliary planning files such as `plan.md`, `tasks.md`, and
+  `research.md`, but normative behavior and contract statements should be easy
+  to identify and trace back to the requirement IDs they refine.
+
+  Use BCP 14 key words consistently when a spec states normative behavior.
+  Normative meanings apply when, and only when, RFC 2119 / RFC 8174 key words
+  appear in all capitals.
+
+requirements:
+  precise-behavior-contracts: >
+    Spec files SHOULD describe precise behavior, interfaces, data contracts,
+    state transitions, edge cases, or acceptance criteria rather than restating
+    high-level requirements without added detail.
+
+  requirement-traceability: >
+    Normative spec statements SHOULD cite the requirement IDs they refine using
+    stable references such as `Implements: REQ-NNN.M` or a traceability table.
+    A spec that intentionally explores behavior before requirements are
+    approved SHOULD clearly mark the requirement references as proposed or
+    pending.
+
+  no-requirement-id-definition: >
+    Specs MUST NOT define new formal requirement IDs as the source of truth.
+    New or changed requirement IDs belong in the requirement files; specs refine
+    and link to those IDs.
+
+  bcp-14-keywords: >
+    Normative spec statements MUST use BCP 14 key words consistently with RFC
+    2119 and RFC 8174 when expressing required, recommended, or optional
+    behavior.
+
+  contracts-testable: >
+    Behavior and contract statements SHOULD be specific enough to validate with
+    tests, DeepSchemas, DeepReview rules, or documented manual validation.
+
+references:
+  - path: "https://www.rfc-editor.org/rfc/rfc2119"
+    description: "RFC 2119 — Key words for use in RFCs to Indicate Requirement Levels."
+  - path: "https://www.rfc-editor.org/rfc/rfc8174"
+    description: "RFC 8174 — Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words."

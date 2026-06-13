@@ -71,7 +71,7 @@ The project includes `tsconfig.json` for strict typechecking across source, test
 
 ## Repository File Structure
 
-The repository layout and source/test directory boundaries live in `doc/file_structure.md`.
+The repository layout and source/test directory boundaries live in `docs/file_structure.md`.
 
 ## Settings Resolution
 
@@ -578,7 +578,7 @@ The practical user model is:
 3. Use `warn` or `error` for strict profiles and CI when unexpected state mutation should be visible.
 4. Use `discard` for caches, sessions, or experimental state that should not outlive the run.
 
-See `doc/state_writeback_strategy.md` for the complete functional contract and the current pi path policy.
+See `docs/state_writeback_strategy.md` for the complete functional contract and the current pi path policy.
 
 ### Composite profile Assembly
 
@@ -797,7 +797,7 @@ Requirements:
 - deterministic tests for unsupported controls and `--strict`;
 - scenario fixtures for common combinations instead of one-off bespoke setup.
 
-Scenario fixture directory conventions are documented in `doc/file_structure.md`.
+Scenario fixture directory conventions are documented in `docs/file_structure.md`.
 Each scenario should include realistic `.applepi` folders and expected resolution output.
 
 ## Settled Initial Decisions

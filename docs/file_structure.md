@@ -1,7 +1,7 @@
 # ApplePi File Structure
 
 This document records the key repository file and directory structure used by ApplePi.
-See `doc/architecture.md` for runtime file conventions such as `.applepi` settings folders, profile folders, and generated composite profile directories.
+See `docs/architecture.md` for runtime file conventions such as `.applepi` settings folders, profile folders, and generated composite profile directories.
 
 ## Repository Layout
 
@@ -14,7 +14,7 @@ ApplePi is organized around clear TypeScript source boundaries, requirement docu
 │   └── schemas/                       # project-specific DeepSchema definitions
 ├── .github/                           # GitHub automation configuration
 │   └── workflows/                     # GitHub Actions workflows and local .deepreview rules
-├── doc/                               # architecture, design, and specification docs
+├── docs/                               # architecture, design, and specification docs
 │   ├── .deepreview                    # documentation-specific DeepWork review rules
 │   ├── architecture.md                # architectural rationale and runtime file conventions
 │   ├── controllable-elements.md       # controllable element terminology and support matrix

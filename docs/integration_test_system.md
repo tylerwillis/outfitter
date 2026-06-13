@@ -178,7 +178,7 @@ Useful composite profile assertions include:
 
 ## Write-back/state-persistence focus
 
-The integration suite encodes the product rule from `doc/state_writeback_strategy.md`: ApplePi does not do generic post-run copy-back or structured merge-back.
+The integration suite encodes the product rule from `docs/state_writeback_strategy.md`: ApplePi does not do generic post-run copy-back or structured merge-back.
 Durable writes happen only through declared state paths that have a persistent strategy, normally by symlink.
 
 Important cases:

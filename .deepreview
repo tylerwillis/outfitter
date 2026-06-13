@@ -80,7 +80,7 @@ requirements_traceability:
       Produce a structured review with Coverage Gaps, Mechanism Mismatches,
       Traceability Comment Issues, and a PASS/FAIL summary.
 
-      See doc/specs/validating_requirements_with_rules.md for project guidance.
+      See docs/validating_requirements_with_rules.md for project guidance.
 
    
 integration_fixture_requirement_coverage:
@@ -131,10 +131,10 @@ doc_consistency:
   match:
     include:
       - "requirements/APPLEPI-REQ-*.md"
-      - "doc/architecture.md"
-      - "doc/file_structure.md"
-      - "doc/state_writeback_strategy.md"
-      - "doc/controllable-elements.md"
+      - "docs/architecture.md"
+      - "docs/file_structure.md"
+      - "docs/state_writeback_strategy.md"
+      - "docs/controllable-elements.md"
   review:
     strategy: all_changed_files
     additional_context:
@@ -149,10 +149,10 @@ doc_consistency:
       that affect public claims.
 
       Documentation files to keep updated:
-      - doc/architecture.md
-      - doc/file_structure.md
-      - doc/state_writeback_strategy.md
-      - doc/controllable-elements.md
+      - docs/architecture.md
+      - docs/file_structure.md
+      - docs/state_writeback_strategy.md
+      - docs/controllable-elements.md
       - doc_site/app/page.mdx
       - doc_site/app/state-persistence/page.mdx
       - doc_site/app/**/*.mdx
@@ -161,10 +161,10 @@ doc_consistency:
       - README.md
 
       Check that:
-      1. doc/file_structure.md stays limited to repository file structure, not runtime instance file conventions.
-      2. Runtime file conventions such as settings directories, profile folders, and composite profile paths live in doc/architecture.md.
-      3. State writeback and state updating details in doc/architecture.md stay consistent with doc/state_writeback_strategy.md, including composite profile/state terminology, strategy names, Pi path policy, and cross-document links.
-      4. Pi state path declarations and special Pi path resolution behavior documented in doc/state_writeback_strategy.md match src/agents/pi/PiAdapter.ts when Pi state path requirements change.
+      1. docs/file_structure.md stays limited to repository file structure, not runtime instance file conventions.
+      2. Runtime file conventions such as settings directories, profile folders, and composite profile paths live in docs/architecture.md.
+      3. State writeback and state updating details in docs/architecture.md stay consistent with docs/state_writeback_strategy.md, including composite profile/state terminology, strategy names, Pi path policy, and cross-document links.
+      4. Pi state path declarations and special Pi path resolution behavior documented in docs/state_writeback_strategy.md match src/agents/pi/PiAdapter.ts when Pi state path requirements change.
       5. Public documentation site claims in doc_site/app/page.mdx, doc_site/app/state-persistence/page.mdx, other MDX pages, layout metadata, and docs navigation stay aligned with architecture, requirements, and support boundaries.
       6. Public docs do not omit important user-facing requirement changes when the homepage, docs pages, or metadata already discuss the affected product area.
       7. Public docs do not present roadmap, unsupported, or unimplemented requirements as currently supported unless the requirement says they are.
@@ -179,7 +179,7 @@ doc_site_product_consistency:
   description: "Verify public documentation site claims stay aligned with ApplePi architecture and controllable element support."
   match:
     include:
-      - "doc/*"
+      - "docs/*"
   review:
     strategy: matches_together
     additional_context:
@@ -192,9 +192,9 @@ doc_site_product_consistency:
       1. Public docs do not overstate implemented adapter support, especially for
          unsupported or unimplemented non-pi agents.
       2. Claims about profile precedence, composite profile behavior, setup repositories,
-         remote profile sources, and adapter translation match doc/architecture.md.
-      3. Claims about state persistence, state update scenarios, and Pi path policy match doc/state_writeback_strategy.md.
-      4. Claims about cross-agent or generic controls match doc/controllable-elements.md
+         remote profile sources, and adapter translation match docs/architecture.md.
+      3. Claims about state persistence, state update scenarios, and Pi path policy match docs/state_writeback_strategy.md.
+      4. Claims about cross-agent or generic controls match docs/controllable-elements.md
          and distinguish supported, roadmap, and unsupported behavior accurately.
       5. Marketing copy may be aspirational, but it MUST NOT present roadmap-only
          capabilities as already implemented.

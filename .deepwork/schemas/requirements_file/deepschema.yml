@@ -1,62 +1,95 @@
-summary: "Requirement specification markdown files."
-instructions: |
-  Requirement files capture formal project obligations. Review them for stable
-  IDs, RFC 2119 language, testability, and an appropriate validation mechanism.
-  Prefer TypeScript tests for deterministic behavior, DeepSchemas for file-level
-  semantic contracts, and DeepReview rules for broad judgment-based policies.
-
-  ApplePi requirement files use the filename style `APPLEPI-REQ-NNN-<topic>.md`,
-  where NNN is a three-digit zero-padded number and `<topic>` is a lowercase
-  kebab-case slug. Section headings use `### APPLEPI-REQ-NNN.M: Title`.
+summary: "Requirement specification files: durable, numbered, testable obligations."
 
 matchers:
-  - "requirements/APPLEPI-REQ-*.md"
+  - "**/requirements/**/*REQ-*.md"
+
+instructions: |
+  Requirement files capture durable product, system, CLI, or operational
+  obligations that implementation and validation must satisfy. They stay
+  concise, stable, numbered, testable, and traceable.
+
+  Requirement IDs use a stable `REQ-NNN.M` form, where `NNN` is a three-digit
+  zero-padded file number and `M` is the requirement's position within the
+  file. A project MAY prefix every ID with a short uppercase project tag — for
+  example `APPLEPI-REQ-001.1` — and when a prefix is used it MUST match the
+  file's own prefix. The guidance below writes IDs without a prefix; read each
+  `REQ-NNN` form as accepting an optional `<PREFIX>-`.
+
+  Each requirement file is laid out as:
+
+      # REQ-NNN: Title
+      ## Overview        — what the file covers and why it exists
+      ## Requirements    — the numbered requirement sections
+      ### REQ-NNN.M: Title   — one section per requirement
+
+  Requirement keywords follow BCP 14: RFC 2119 (key words for requirement
+  levels) and RFC 8174 (uppercase vs lowercase ambiguity). Normative meanings
+  apply when, and only when, the key words appear in all capitals.
+
+  Put precise behavior contracts, state machines, API shapes, file formats,
+  edge cases, and implementation handoff detail in spec files under
+  `docs/specs/`, then link them back to the requirement IDs they refine.
 
 requirements:
-  filename-style: >
-    Requirement filenames MUST match the regex
-    `^APPLEPI-REQ-[0-9]{3}-[a-z0-9]+(-[a-z0-9]+)*\.md$` so filenames are stable,
-    sortable, and consistent with section IDs.
-  top-level-heading-style: >
-    Each requirement file MUST begin with a top-level heading matching
-    `# APPLEPI-REQ-NNN: Title`, where NNN matches the filename number.
-  required-overview-section: >
-    Each requirement file MUST include a `## Overview` section before its
-    requirements list.
-  required-requirements-section: >
-    Each requirement file MUST include a `## Requirements` section before its
-    requirement subsections.
-  rfc-2119-language: >
-    Each numbered requirement statement MUST use at least one RFC 2119 keyword
-    such as MUST, MUST NOT, SHOULD, SHOULD NOT, MAY, REQUIRED, RECOMMENDED, or OPTIONAL.
-  stable-section-ids: >
-    Each requirement section heading MUST follow `### APPLEPI-REQ-NNN.M: Title`,
-    where `APPLEPI-REQ-NNN` matches the requirement file name prefix.
-  sequential-section-numbering: >
+  top-level-heading: >
+    Each requirement file MUST begin with a top-level heading of the form
+    `# REQ-NNN: Title` (optionally with a project prefix, such as
+    `# APPLEPI-REQ-NNN: Title`) whose number matches the filename.
+
+  overview-section: >
+    Each requirement file MUST include an `## Overview` section, before the
+    requirements, that explains what the file covers and why it exists.
+
+  requirements-section: >
+    Each requirement file MUST include a `## Requirements` section, after the
+    Overview, that contains the numbered requirement sections.
+
+  requirement-sections: >
+    Each individual requirement MUST be a `### REQ-NNN.M: Title` section heading
+    (optionally project-prefixed) whose `REQ-NNN` matches the file's number.
+
+  sequential-numbering: >
     Requirement section numbers within a file MUST be sequential without gaps,
-    starting at `.1`.
+    starting at `.1`. A retired requirement SHOULD keep its number with a
+    `REQUIREMENT REMOVED` placeholder rather than be renumbered.
+
+  filename-style: >
+    Requirement filenames MUST follow `REQ-NNN-<topic>.md` (optionally
+    project-prefixed), where `NNN` is three digits and `<topic>` is a lowercase
+    kebab-case slug, so filenames are stable, sortable, and consistent with the
+    section IDs they contain.
+
+  bcp-14-keywords: >
+    Requirement statements MUST use BCP 14 normative key words consistently with
+    RFC 2119 and RFC 8174. MUST, MUST NOT, SHALL, SHALL NOT, SHOULD, SHOULD NOT,
+    RECOMMENDED, NOT RECOMMENDED, MAY, OPTIONAL, and REQUIRED carry normative
+    meaning only when written in all capitals.
+
+  what-must-happen: >
+    Requirement files MUST describe outcomes, obligations, or constraints that
+    must hold for users, operators, systems, or supported workflows. They SHOULD
+    NOT contain low-level implementation detail unless that detail is itself a
+    durable requirement.
+
+  stable-ids: >
+    Existing requirement IDs MUST NOT be reused for unrelated behavior,
+    renumbered, or changed in a way that breaks existing references from specs,
+    tests, reviews, DeepSchemas, implementation comments, or documentation.
+    Cross-references to other requirement files MAY cite their IDs.
+
   specific-and-verifiable: >
-    Each requirement MUST be specific enough to verify by TypeScript test,
-    DeepSchema, DeepReview rule, or direct reviewer judgment.
-  validation-mechanism-fit: >
-    Requirements MUST choose an appropriate validation mechanism: deterministic
-    facts belong in TypeScript tests or JSON Schema, single-file judgment belongs
-    in DeepSchemas, and broad judgment-based policy belongs in DeepReview rules.
+    Each requirement MUST be specific enough to verify by an automated test, a
+    DeepSchema, a DeepReview rule, a spec section, or a documented manual
+    validation path, and SHOULD use the mechanism that fits: deterministic
+    behavior in tests, file-level semantic contracts in DeepSchemas, cross-file
+    judgment in DeepReview, and precise behavior or interface contracts in specs.
+
   no-fragile-keyword-tests: >
     Requirements and their validation notes MUST NOT endorse fragile keyword
     searches as proof of judgment-based behavior.
-  stable-numbering: >
-    Existing requirement IDs MUST NOT be changed or reassigned after they are
-    referenced by tests, DeepSchemas, DeepReview rules, or implementation notes.
-
-verification_bash_command:
-  - "base=$(basename \"$1\"); if ! printf '%s\\n' \"$base\" | grep -Eq '^APPLEPI-REQ-[0-9]{3}-[a-z0-9]+(-[a-z0-9]+)*\\.md$'; then echo \"FAIL: requirement filename does not match APPLEPI style: $base\"; exit 1; fi"
-  - "base=$(basename \"$1\" .md); prefix=$(printf '%s\\n' \"$base\" | grep -Eo '^APPLEPI-REQ-[0-9]{3}'); first=$(head -n 1 \"$1\"); if [ \"$first\" != \"# $prefix: ${first#*: }\" ] || ! printf '%s\\n' \"$first\" | grep -Eq '^# APPLEPI-REQ-[0-9]{3}: .+'; then echo \"FAIL: top-level heading does not match APPLEPI requirement style: $first\"; exit 1; fi"
-  - "grep -nE '^[0-9]+\\.' \"$1\" | grep -vE 'MUST|MUST NOT|SHALL|SHALL NOT|SHOULD|SHOULD NOT|MAY|REQUIRED|RECOMMENDED|OPTIONAL|REQUIREMENT REMOVED' | { if read -r line; then echo \"FAIL: Requirement without RFC 2119 keyword: $line\"; exit 1; fi; }"
-  - "awk '/^## Overview$/ { overview=NR } /^## Requirements$/ { requirements=NR } /^### APPLEPI-REQ-[0-9]{3}\\.[0-9]+: / { if (!first_req) first_req=NR } END { if (!overview) { print \"FAIL: missing ## Overview section\"; exit 1 } if (!requirements) { print \"FAIL: missing ## Requirements section\"; exit 1 } if (requirements <= overview) { print \"FAIL: ## Requirements must appear after ## Overview\"; exit 1 } if (first_req && first_req <= requirements) { print \"FAIL: requirement sections must appear after ## Requirements\"; exit 1 } }' \"$1\""
-  - "base=$(basename \"$1\" .md); prefix=$(printf '%s\\n' \"$base\" | grep -Eo '^APPLEPI-REQ-[0-9]{3}'); grep -nE '^### APPLEPI-REQ-[0-9]{3}\\.[0-9]+: ' \"$1\" | grep -v \"### $prefix.\" | { if read -r line; then echo \"FAIL: section ID prefix does not match filename: $line\"; exit 1; fi; }"
-  - "base=$(basename \"$1\" .md); prefix=$(printf '%s\\n' \"$base\" | grep -Eo '^APPLEPI-REQ-[0-9]{3}'); awk -v prefix=\"$prefix\" '/^### APPLEPI-REQ-[0-9]{3}\\.[0-9]+: / { split($2, parts, /\\./); n=parts[2]+0; expected++; if (n != expected) { printf \"FAIL: requirement section numbering gap at line %d: expected %s.%d, got %s\\n\", NR, prefix, expected, $2; exit 1 } } END { if (expected == 0) { print \"FAIL: no requirement sections found\"; exit 1 } }' \"$1\""
 
 references:
-  - path: "../../../doc/specs/validating_requirements_with_rules.md"
-    description: "Guidance for choosing tests, DeepSchemas, or DeepReview rules for requirements validation."
+  - path: "https://www.rfc-editor.org/rfc/rfc2119"
+    description: "RFC 2119 — Key words for use in RFCs to Indicate Requirement Levels."
+  - path: "https://www.rfc-editor.org/rfc/rfc8174"
+    description: "RFC 8174 — Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words."
