@@ -9,7 +9,10 @@ import { afterEach, describe, expect, it } from 'vitest';
 const temporaryRoots: string[] = [];
 const scriptPath = resolve('scripts/sync-release-version.mjs');
 
-const createTemporaryPackageRoot = (packageName = 'outfitter', lockfilePackageName = packageName): string => {
+const createTemporaryPackageRoot = (
+  packageName = '@ai-outfitter/outfitter',
+  lockfilePackageName = packageName,
+): string => {
   const root = mkdtempSync(join(tmpdir(), 'outfitter-release-version-'));
   temporaryRoots.push(root);
   writeJson(join(root, 'package.json'), { name: packageName, version: '0.1.0' });
@@ -81,7 +84,7 @@ describe('release version synchronization script', () => {
   it('rejects invalid versions and package metadata mismatches', () => {
     const invalidVersionRoot = createTemporaryPackageRoot();
     const packageMismatchRoot = createTemporaryPackageRoot('not-outfitter');
-    const lockfileMismatchRoot = createTemporaryPackageRoot('outfitter', 'not-outfitter');
+    const lockfileMismatchRoot = createTemporaryPackageRoot('@ai-outfitter/outfitter', 'not-outfitter');
     const missingLockfileRootPackageRoot = createTemporaryPackageRoot();
     const missingRootPackageLockfile = readJson(join(missingLockfileRootPackageRoot, 'package-lock.json'));
     delete (missingRootPackageLockfile.packages as Record<string, unknown>)[''];
@@ -101,8 +104,8 @@ describe('release version synchronization script', () => {
       originalInvalidVersionPackageLockJson,
     );
     expect(() => runScript(invalidVersionRoot, '1.2.3-a..b')).toThrow('Invalid Outfitter release version: 1.2.3-a..b');
-    expect(() => runScript(packageMismatchRoot, '1.2.3')).toThrow("Expected package name 'outfitter'");
-    expect(() => runScript(lockfileMismatchRoot, '1.2.3')).toThrow("Expected package name 'outfitter'");
+    expect(() => runScript(packageMismatchRoot, '1.2.3')).toThrow("Expected package name '@ai-outfitter/outfitter'");
+    expect(() => runScript(lockfileMismatchRoot, '1.2.3')).toThrow("Expected package name '@ai-outfitter/outfitter'");
     expect(readFileSync(join(lockfileMismatchRoot, 'package.json'), 'utf8')).toBe(originalLockfileMismatchPackageJson);
     expect(readFileSync(join(lockfileMismatchRoot, 'package-lock.json'), 'utf8')).toBe(
       originalLockfileMismatchPackageLockJson,

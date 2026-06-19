@@ -65,8 +65,8 @@ function isSemanticVersion(version) {
 }
 
 function assertPackageName(packageJson) {
-  if (packageJson.name !== 'outfitter') {
-    throw new Error(`Expected package name 'outfitter' but found '${packageJson.name}'.`);
+  if (packageJson.name !== '@ai-outfitter/outfitter') {
+    throw new Error(`Expected package name '@ai-outfitter/outfitter' but found '${packageJson.name}'.`);
   }
 }
 

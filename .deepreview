@@ -88,7 +88,7 @@ integration_fixture_requirement_coverage:
   match:
     include:
       - "requirements/OFTR-003-profiles.md"
-      - "requirements/OFTR-005-run-and-composite profile.md"
+      - "requirements/OFTR-005-run-and-composite-profile.md"
       - "requirements/OFTR-006-agent-adapters.md"
       - "requirements/OFTR-007-controllable-elements.md"
   review:

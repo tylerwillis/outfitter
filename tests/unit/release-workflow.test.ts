@@ -43,7 +43,7 @@ const findStep = (workflow: WorkflowDocument, stepName: string): WorkflowStep =>
 describe('release workflow', () => {
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-009.2).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('publishes the outfitter npm package only after release preparation and checks', () => {
+  it('publishes the @ai-outfitter/outfitter npm package only after release preparation and checks', () => {
     const workflow = loadReleaseWorkflow();
     const stepNames = workflow.jobs['publish-npm'].steps.map((step) => step.name);
 
