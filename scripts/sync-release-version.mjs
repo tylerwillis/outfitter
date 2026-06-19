@@ -65,8 +65,8 @@ function isSemanticVersion(version) {
 }
 
 function assertPackageName(packageJson) {
-  if (packageJson.name !== '@applepi-ai/applepi') {
-    throw new Error(`Expected package name '@applepi-ai/applepi' but found '${packageJson.name}'.`);
+  if (!['applepi', '@applepi-ai/applepi'].includes(packageJson.name)) {
+    throw new Error(`Expected package name 'applepi' but found '${packageJson.name}'.`);
   }
 }
 
