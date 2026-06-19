@@ -1,5 +1,6 @@
+/* eslint-disable max-lines */
 // Provides the command object for first-run Outfitter setup.
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -23,7 +24,11 @@ import {
   loadSettingsWithCachedRemoteSettings,
 } from '../../settings/SettingsLoader.js';
 import type { CommandObject } from './CommandObject.js';
-import { persistFirstRunWelcomeProfile, type PersistedFirstRunWelcomeProfile } from './FirstRunWelcomeProfile.js';
+import {
+  persistFirstRunWelcomeProfile,
+  updateSettingsDefaultProfile,
+  type PersistedFirstRunWelcomeProfile,
+} from './FirstRunWelcomeProfile.js';
 import type { SyncCommandDependencies, SyncCommandResult } from './SyncCommand.js';
 import { executeSyncCommand } from './SyncCommand.js';
 import { executeWelcomeCommand } from './WelcomeCommand.js';
@@ -79,6 +84,7 @@ interface StarterLayout {
   readonly profilesPath?: string;
 }
 
+/* eslint-disable complexity -- setup orchestration coordinates settings, sync, prompts, and welcome persistence. */
 export const executeSetupCommand = async (
   input: SetupCommandInput,
   dependencies: SetupCommandDependencies = {},
@@ -106,12 +112,14 @@ export const executeSetupCommand = async (
     starterLayout?.profilesPath,
     join(input.homeDirectory, '.outfitter', 'profiles'),
   );
+  const rollbackCreatedSettings = createdSettings ? () => rmSync(settingsPath, { force: true }) : () => undefined;
   const syncResult = executeSyncCommand(input, dependencies);
+  failOnInitialDefaultProfileSyncFailure(initialSettingsMissing, rollbackCreatedSettings, syncResult);
   const selectedDefaultProfileId = shouldSkipInitialDefaultProfilePrompt(initialSettingsMissing, dependencies)
     ? defaultProfileId
     : await selectDefaultProfileIfInteractive(input, settingsPath, defaultProfileId, dependencies);
   const welcomeResult = await runWelcomeAfterInteractiveSetup(input, dependencies);
-  const welcomeProfile = persistFirstRunWelcomeProfile(input.homeDirectory, settingsPath, welcomeResult);
+  const welcomeProfile = persistWelcomeProfileForSetup(input, settingsPath, welcomeResult);
   const finalDefaultProfile = prepareFinalDefaultProfile(input.homeDirectory, selectedDefaultProfileId, welcomeProfile);
 
   return {
@@ -132,8 +140,37 @@ export const executeSetupCommand = async (
       defaultProfilePath: finalDefaultProfile.path,
       createdDefaultProfile: finalDefaultProfile.created,
       syncResult,
+      welcomeProfileMessages: welcomeProfile?.messages ?? [],
     }),
   };
+};
+/* eslint-enable complexity */
+
+const defaultProfilesSourceUri = 'git+https://github.com/ai-outfitter/default-profiles.git:profiles';
+
+const failOnInitialDefaultProfileSyncFailure = (
+  initialSettingsMissing: boolean,
+  rollbackCreatedSettings: () => void,
+  syncResult: SyncCommandResult,
+): void => {
+  if (!initialSettingsMissing) {
+    return;
+  }
+
+  const failedDefaultProfilesSource = syncResult.sources.find(
+    (source) => source.uri === defaultProfilesSourceUri && source.status === 'failed',
+  );
+
+  if (failedDefaultProfilesSource === undefined) {
+    return;
+  }
+
+  rollbackCreatedSettings();
+
+  throw new Error(
+    `Cannot complete first-run setup because the default profiles source failed to sync: ${failedDefaultProfilesSource.message}. ` +
+      'Fix the network/git issue and rerun `outfitter setup` once the source is reachable.',
+  );
 };
 
 interface FinalDefaultProfile {
@@ -165,6 +202,7 @@ interface SetupMessageInput {
   readonly defaultProfilePath: string;
   readonly createdDefaultProfile: boolean;
   readonly syncResult: SyncCommandResult;
+  readonly welcomeProfileMessages: readonly string[];
 }
 
 const buildSetupMessages = (input: SetupMessageInput): readonly string[] => {
@@ -197,6 +235,7 @@ const buildSetupMessages = (input: SetupMessageInput): readonly string[] => {
       ? `Created default user profile at ${input.defaultProfilePath}.`
       : `Default user profile at ${input.defaultProfilePath} already exists; left unchanged.`,
     `Selected default profile '${input.defaultProfileId}'.`,
+    ...input.welcomeProfileMessages,
     ...input.syncResult.messages,
   );
 
@@ -347,7 +386,14 @@ const assertValidDefaultProfileId = (profileId: string): void => {
 };
 
 const createDefaultSettingsContent = (): string =>
-  ['default_profile: engineer', 'profile_sources:', '  - path: ./profiles', ''].join('\n');
+  [
+    'default_profile: engineer',
+    'profile_sources:',
+    '  - github: ai-outfitter/default-profiles',
+    '    path: profiles',
+    '  - path: ./profiles',
+    '',
+  ].join('\n');
 
 const createInitialSettingsIfMissing = (settingsPath: string, starterSettingsPath?: string): boolean => {
   if (existsSync(settingsPath)) {
@@ -417,6 +463,43 @@ const createDefaultProfileIfMissing = (profilePath: string, profileId: string): 
   mkdirSync(dirname(profilePath), { recursive: true });
   writeFileSync(profilePath, `id: ${profileId}\nlabel: Default\ncontrols: {}\n`);
   return true;
+};
+
+const persistWelcomeProfileForSetup = (
+  input: SetupCommandInput,
+  settingsPath: string,
+  welcomeResult: WelcomeCommandResult | undefined,
+): PersistedFirstRunWelcomeProfile | undefined =>
+  persistFirstRunWelcomeProfile(input.homeDirectory, settingsPath, welcomeResult, {
+    sourceProfileDirectory: findWelcomeSourceProfileDirectory(input, welcomeResult?.selectedRole?.id),
+  });
+
+const findWelcomeSourceProfileDirectory = (
+  input: SetupCommandInput,
+  profileId: string | undefined,
+): string | undefined => {
+  if (profileId === undefined) {
+    return undefined;
+  }
+
+  const loadedSettings = loadSettingsWithCachedRemoteSettings(input);
+
+  /* v8 ignore next -- setup already rejected invalid settings; this fallback handles cache mutation during welcome. */
+  if (loadedSettings.issues.length > 0) {
+    return undefined;
+  }
+
+  for (const source of loadedSettings.settings.profileSources!) {
+    const materializedPath = materializeSetupProfileSource(input.homeDirectory, source);
+    const loadedProfiles = loadLocalProfileSource({ path: materializedPath, only: source.only, except: source.except });
+    const loadedProfile = loadedProfiles.profiles.find((profile) => profile.profile.id === profileId);
+
+    if (loadedProfile !== undefined) {
+      return loadedProfile.folderPath;
+    }
+  }
+
+  return undefined;
 };
 
 const runWelcomeAfterInteractiveSetup = async (
@@ -582,14 +665,7 @@ const promptForSetupProfile = async (
   }
 };
 
-export const updateSettingsDefaultProfile = (settingsPath: string, profileId: string): void => {
-  const content = readFileSync(settingsPath, 'utf8');
-  const nextContent = /^default_profile:.*$/mu.test(content)
-    ? content.replace(/^default_profile:.*$/gmu, `default_profile: ${profileId}`)
-    : `${content.replace(/\s*$/u, '\n')}default_profile: ${profileId}\n`;
-
-  writeFileSync(settingsPath, nextContent);
-};
+export { updateSettingsDefaultProfile };
 
 const formatSettingsIssue = (issue: {
   readonly filePath: string;
