@@ -1,5 +1,5 @@
 // Tests pi adapter launch translation and composite file behavior.
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -166,7 +166,7 @@ describe('pi adapter', () => {
     const compositeProfilePlan = adapter.createCompositeProfile(
       { id: 'engineering', inherits: [], controls: {} },
       {
-        rootDirectory: '/tmp/outfitter-engineering-pi-mcp',
+        rootDirectory: join(homeDirectory, 'composite'),
         profilePaths: ['/profiles/engineering/profile.yml'],
         homeDirectory,
       },
@@ -400,6 +400,71 @@ describe('pi adapter', () => {
         scalarToArray: ['explicit'],
       },
     });
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.3).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('adds profile-bundled Pi skills to the launch args', () => {
+    const root = createTemporaryPiAdapterTestRoot('outfitter-pi-profile-skills-');
+    const profileFolder = join(root, 'profiles', 'data_analyst');
+    const skillFolder = join(profileFolder, 'cli_specific', 'pi', 'skills', 'demos');
+    const incompleteSkillFolder = join(profileFolder, 'cli_specific', 'pi', 'skills', 'draft');
+    mkdirSync(skillFolder, { recursive: true });
+    mkdirSync(incompleteSkillFolder, { recursive: true });
+    writeFileSync(join(skillFolder, 'SKILL.md'), '---\nname: demos\ndescription: Demo runner\n---\n');
+
+    const adapter = createPiAdapter();
+    const compositeProfilePlan = adapter.createCompositeProfile(
+      { id: 'data_analyst', inherits: [], controls: {} },
+      { rootDirectory: join(root, 'composite'), profilePaths: [], profileFolders: [profileFolder] },
+    );
+    const launchPlan = adapter.createLaunchPlan(
+      compositeProfilePlan.compositeProfile,
+      { id: 'data_analyst', inherits: [], controls: { pi: { skills: ['user-skill'] } } },
+      [],
+      { profileFolders: [profileFolder] },
+    );
+
+    expect(launchPlan.args).toEqual(['--skill', 'user-skill', '--skill', skillFolder]);
+  });
+
+  it('reports invalid profile-bundled Pi resource paths', () => {
+    const root = createTemporaryPiAdapterTestRoot('outfitter-pi-profile-resource-errors-');
+    const adapter = createPiAdapter();
+    const profileFolder = join(root, 'profiles', 'data_analyst');
+    const skillsFolder = join(profileFolder, 'cli_specific', 'pi', 'skills');
+    const jobsFolder = join(profileFolder, 'cli_specific', 'pi', 'deepwork', 'jobs');
+    const compositeProfilePlan = adapter.createCompositeProfile(
+      { id: 'data_analyst', inherits: [], controls: {} },
+      { rootDirectory: join(root, 'composite'), profilePaths: [], profileFolders: [profileFolder] },
+    );
+
+    mkdirSync(join(profileFolder, 'cli_specific', 'pi'), { recursive: true });
+    writeFileSync(skillsFolder, 'not a directory');
+    expect(() =>
+      adapter.createLaunchPlan(compositeProfilePlan.compositeProfile, undefined, [], {
+        profileFolders: [profileFolder],
+      }),
+    ).toThrow(`Could not read profile Pi skills folder '${skillsFolder}'`);
+
+    rmSync(skillsFolder, { force: true });
+    mkdirSync(join(profileFolder, 'cli_specific', 'pi', 'deepwork'), { recursive: true });
+    writeFileSync(jobsFolder, 'not a directory');
+    expect(() =>
+      adapter.createLaunchPlan(compositeProfilePlan.compositeProfile, undefined, [], {
+        profileFolders: [profileFolder],
+      }),
+    ).toThrow(`Could not read profile DeepWork jobs folder '${jobsFolder}'`);
+
+    rmSync(jobsFolder, { force: true });
+    const loopingSkillFile = join(skillsFolder, 'loop', 'SKILL.md');
+    mkdirSync(join(skillsFolder, 'loop'), { recursive: true });
+    symlinkSync(loopingSkillFile, loopingSkillFile);
+    expect(() =>
+      adapter.createLaunchPlan(compositeProfilePlan.compositeProfile, undefined, [], {
+        profileFolders: [profileFolder],
+      }),
+    ).toThrow(`Could not inspect file '${loopingSkillFile}'`);
   });
 
   it('rejects pi .mcp.json profile fragments that are invalid or not JSON objects', () => {

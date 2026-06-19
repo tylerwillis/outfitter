@@ -183,13 +183,15 @@ describe('run command', () => {
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
     const messages: string[] = [];
+    const syncedSources: unknown[] = [];
 
     const result = await executeRunCommand(
       { homeDirectory, projectDirectory },
       {
         writeLine: (message) => messages.push(message),
         synchronizer: {
-          sync(_source, cachePath) {
+          sync(source, cachePath) {
+            syncedSources.push(source);
             mkdirSync(join(cachePath, 'profiles', 'engineer'), { recursive: true });
             writeFileSync(join(cachePath, 'profiles', 'engineer', 'profile.yml'), 'id: engineer\ncontrols: {}\n');
             return 'updated';
@@ -203,15 +205,18 @@ describe('run command', () => {
       },
     );
 
-    expect(messages).toEqual([
-      '`outfitter setup` has not been run yet - running now',
-      'Pi does not appear to be logged in yet. After Pi starts, run `/login` and choose a subscription such as Codex or provide an API key from another model provider.',
-      '→ resolving profile engineer',
-      `✓ profile layer engineer  ${join(homeDirectory, '.outfitter', 'profiles', 'engineer')}`,
-      '✓ merged controls',
-      `✓ prepared composite profile  ${result.compositeProfileDirectory}`,
-      '↳ launching pi …',
-    ]);
+    expect(messages).toEqual(
+      expect.arrayContaining([
+        '`outfitter setup` has not been run yet - running now',
+        'Pi does not appear to be logged in yet. After Pi starts, run `/login` and choose a subscription such as Codex or provide an API key from another model provider.',
+        '→ resolving profile engineer',
+        `✓ profile layer engineer  ${join(homeDirectory, '.outfitter', 'profiles', 'engineer')}`,
+        '✓ merged controls',
+        `✓ prepared composite profile  ${result.compositeProfileDirectory}`,
+        '↳ launching pi …',
+      ]),
+    );
+    expect(syncedSources).toEqual([{ github: 'ai-outfitter/default-profiles', path: 'profiles' }]);
     expect(result.profileId).toBe('engineer');
     expect(existsSync(join(homeDirectory, '.outfitter', 'settings.yml'))).toBe(true);
     expect(existsSync(join(homeDirectory, '.outfitter', 'profiles', 'engineer', 'profile.yml'))).toBe(true);
