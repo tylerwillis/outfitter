@@ -1,11 +1,11 @@
-# ApplePi File Structure
+# Outfitter File Structure
 
-This document records the key repository file and directory structure used by ApplePi.
-See `doc/architecture.md` for runtime file conventions such as `.applepi` settings folders, profile folders, and generated composite profile directories.
+This document records the key repository file and directory structure used by Outfitter.
+See `doc/architecture.md` for runtime file conventions such as `.outfitter` settings folders, profile folders, and generated composite profile directories.
 
 ## Repository Layout
 
-ApplePi is organized around clear TypeScript source boundaries, requirement documents, and scenario-based tests.
+Outfitter is organized around clear TypeScript source boundaries, requirement documents, and scenario-based tests.
 
 ```text
 .                                      # repository root
@@ -29,8 +29,8 @@ ApplePi is organized around clear TypeScript source boundaries, requirement docu
 │   ├── next.config.mjs                # Next.js configuration wrapped by Nextra
 │   ├── package.json                   # documentation site package scripts and dependencies
 │   └── tsconfig.json                  # documentation site TypeScript configuration
-├── requirements/                      # formal APPLEPI requirement documents
-│   ├── APPLEPI-REQ-001-project-foundation.md
+├── requirements/                      # formal OUTFITTER requirement documents
+│   ├── OUTFITTER-REQ-001-project-foundation.md
 │   └── ...
 ├── .prettierignore                    # Prettier ignore rules
 ├── .prettierrc.json                   # Prettier formatting configuration
@@ -40,7 +40,7 @@ ApplePi is organized around clear TypeScript source boundaries, requirement docu
 ├── src/                               # production TypeScript source
 │   ├── cli.ts                         # executable CLI entry point
 │   ├── cli/                           # CLI parser construction and command registration
-│   │   ├── ApplePiCli.ts
+│   │   ├── OutfitterCli.ts
 │   │   └── commands/                  # command objects for non-trivial CLI behavior
 │   │       ├── CommandObject.ts
 │   │       ├── FirstRunWelcomeProfile.ts
@@ -130,4 +130,4 @@ tests/fixtures/scenarios/
   profile-precedence/
 ```
 
-Each scenario should include realistic `.applepi` folders and expected resolution output.
+Each scenario should include realistic `.outfitter` folders and expected resolution output.
