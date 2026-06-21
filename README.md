@@ -85,7 +85,7 @@ When that first-run setup has an interactive terminal, Outfitter continues into 
 
 `outfitter welcome` explains Outfitter and Pi, asks you to choose an initial built-in role, and recommends a Pi productivity loadout.
 The current built-in role choices are `engineer` and `data_analyst`; Outfitter creates the selected local profile on the fly.
-The recommended loadout includes `ulta-tasklist`, `deepwork`, `pi-subagents`, and `pi-mcp-adapter`; you can accept it, choose individual items, or skip loadout installation.
+The recommended loadout includes `ulta-tasklist`, `deepwork`, `pi-subagents`, `pi-mcp-adapter`, and `@juicesharp/rpiv-ask-user-question`; you can accept it, choose individual items, or skip loadout installation.
 If you skip loadout installation, the generated profile has no extensions or skills.
 If Pi does not appear to be logged in after welcome onboarding, Outfitter opens Pi with `/login` automatically; outside welcome onboarding it prints a `/login` reminder instead.
 Outfitter never collects or persists provider API keys itself.

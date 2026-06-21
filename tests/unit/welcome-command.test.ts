@@ -11,6 +11,7 @@ const defaultLoadoutSources = [
   'git:github.com/ai-outfitter/deepwork',
   'npm:pi-subagents',
   'npm:pi-mcp-adapter',
+  'npm:@juicesharp/rpiv-ask-user-question',
 ];
 
 describe('welcome command', () => {
@@ -138,6 +139,7 @@ describe('welcome command', () => {
     expect(outputText).toContain('engineer - Engineer');
     expect(outputText).toContain('data_analyst - Data Analyst');
     expect(outputText).toContain('npm:pi-mcp-adapter');
+    expect(outputText).toContain('npm:@juicesharp/rpiv-ask-user-question');
     expect(result.answered).toBe(true);
     expect(result.selectedRole?.id).toBe('data_analyst');
     expect(result.selectedLoadout?.selectedItems.map((item) => item.source)).toEqual([

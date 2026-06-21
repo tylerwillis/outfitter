@@ -26,7 +26,7 @@ Outfitter welcome onboarding guides a new user through the minimum choices neede
 1. The welcome onboarding flow MUST recommend at least one default loadout for the selected role.
 2. A loadout MUST be represented as a named set of Pi extensions, skills, or package resources that Outfitter can translate into profile controls or profile-managed Pi configuration.
 3. The welcome onboarding flow MUST allow the user to accept the recommended loadout, select individual loadout items, or skip loadout installation.
-4. The default recommended loadout MUST include `git:github.com/ai-outfitter/ulta-tasklist`, `git:github.com/ai-outfitter/deepwork`, `npm:pi-subagents`, and `npm:pi-mcp-adapter` while those packages remain available.
+4. The default recommended loadout MUST include `git:github.com/ai-outfitter/ulta-tasklist`, `git:github.com/ai-outfitter/deepwork`, `npm:pi-subagents`, `npm:pi-mcp-adapter`, and `npm:@juicesharp/rpiv-ask-user-question` while those packages remain available.
 5. Loadout installation MUST be captured as structured onboarding data so future profile creation can install the selected extensions, skills, or package resources deterministically.
 6. If a loadout item is unavailable or unsupported by the selected agent adapter, Outfitter MUST warn the user and continue with the remaining selected loadout items unless strict onboarding validation is enabled.
 

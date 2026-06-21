@@ -734,7 +734,7 @@ Responsibilities:
 - show welcome text that explains Outfitter and Pi before asking onboarding questions;
 - ask whether the user wants to answer setup questions now;
 - ask the user to choose an initial built-in standard role, currently including `engineer` and `data_analyst`;
-- recommend a named Pi productivity loadout containing `git:github.com/ai-outfitter/ulta-tasklist`, `git:github.com/ai-outfitter/deepwork`, `npm:pi-subagents`, and `npm:pi-mcp-adapter`;
+- recommend a named Pi productivity loadout containing `git:github.com/ai-outfitter/ulta-tasklist`, `git:github.com/ai-outfitter/deepwork`, `npm:pi-subagents`, `npm:pi-mcp-adapter`, and `npm:@juicesharp/rpiv-ask-user-question`;
 - allow the user to accept the loadout, choose individual loadout items, or skip loadout installation;
 - create the selected local role profile on the fly, appending only the selected loadout resources and leaving extensions/skills empty when the user selects none;
 - return typed onboarding choices so later work can persist richer profile/loadout metadata behind a schema-validated YAML format if needed.

@@ -109,6 +109,12 @@ const recommendedPiLoadout: WelcomeLoadout = {
       kind: 'package',
       source: 'npm:pi-mcp-adapter',
     },
+    {
+      id: 'ask-user-question',
+      label: 'Ask User Question',
+      kind: 'extension',
+      source: 'npm:@juicesharp/rpiv-ask-user-question',
+    },
   ],
 };
 
@@ -251,7 +257,9 @@ const promptForLoadout = async (
     return recommendedPiLoadout.items.map((item) => item.id);
   }
 
-  const answer = (await readline.question('Loadout items [1,2,3,4 or blank for all]: ')).trim();
+  const answer = (
+    await readline.question(`Loadout items [1-${recommendedPiLoadout.items.length} or blank for all]: `)
+  ).trim();
 
   if (answer === '') {
     return recommendedPiLoadout.items.map((item) => item.id);
