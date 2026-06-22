@@ -32,6 +32,7 @@ Outfitter provides setup and maintenance commands that create initial configurat
 22. Setup MUST NOT ask for provider/model setup when usable user-local Pi auth/models state already exists.
 23. Setup MUST NOT write provider/model choices into published profile controls or persistent setup-skill controls.
 24. Rerunning `outfitter setup <repo>` SHOULD re-consume the setup source non-destructively and expose any effective setup skill only for that interactive setup session.
+25. When interactive `setup <source>` presents setup profile choices, it MUST limit those choices to profiles from the passed setup source and MUST NOT include default profile sources from pre-existing effective settings.
 
 ### OFTR-004.2: Sync Command
 
