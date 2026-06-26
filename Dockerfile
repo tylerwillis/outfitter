@@ -8,11 +8,15 @@ RUN apt-get update \
 
 WORKDIR /opt/outfitter
 
-COPY package.json package-lock.json tsconfig.json tsconfig.build.json ./
+COPY package.json package-lock.json ./
+RUN npm pkg delete scripts.prepare \
+  && npm ci
+
+COPY package.json tsconfig.json tsconfig.build.json ./
+COPY skills ./skills
 COPY src ./src
 
-RUN npm ci \
-  && npm run build \
+RUN npm run build \
   && npm prune --omit=dev \
   && ln -sf /opt/outfitter/dist/cli.js /usr/local/bin/outfitter \
   && ln -sf /opt/outfitter/node_modules/.bin/pi /usr/local/bin/pi

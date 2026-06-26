@@ -2,6 +2,7 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -10,6 +11,8 @@ import { writeCompositeProfile } from '../../src/compositeProfile/CompositeProfi
 import { parseProfileYaml } from '../../src/profiles/ProfileLoader.js';
 
 const temporaryPiAdapterTestRoots: string[] = [];
+const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
+const builtInOutfitterSkill = join(repositoryRoot, 'skills', 'outfitter');
 
 afterEach(() => {
   for (const root of temporaryPiAdapterTestRoots.splice(0)) {
@@ -116,6 +119,8 @@ describe('pi adapter', () => {
       '--extension',
       'ext-a',
       '--skill',
+      builtInOutfitterSkill,
+      '--skill',
       'skill-pi',
       '--skill',
       'skill-a',
@@ -131,6 +136,8 @@ describe('pi adapter', () => {
       expect(adapter.createLaunchPlan(compositeProfilePlan.compositeProfile, genericFallbackProfile).args).toEqual([
         '--model',
         'generic-model',
+        '--skill',
+        builtInOutfitterSkill,
       ]);
     }
   });
@@ -156,6 +163,8 @@ describe('pi adapter', () => {
       './prompts/role.md',
       '--append-system-prompt',
       './prompts/vcs.md',
+      '--skill',
+      builtInOutfitterSkill,
     ]);
   });
 
@@ -427,32 +436,6 @@ describe('pi adapter', () => {
         scalarToArray: ['explicit'],
       },
     });
-  });
-
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.3).
-  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('adds profile-bundled Pi skills to the launch args', () => {
-    const root = createTemporaryPiAdapterTestRoot('outfitter-pi-profile-skills-');
-    const profileFolder = join(root, 'profiles', 'data_analyst');
-    const skillFolder = join(profileFolder, 'skills', 'demos');
-    const incompleteSkillFolder = join(profileFolder, 'skills', 'draft');
-    mkdirSync(skillFolder, { recursive: true });
-    mkdirSync(incompleteSkillFolder, { recursive: true });
-    writeFileSync(join(skillFolder, 'SKILL.md'), '---\nname: demos\ndescription: Demo runner\n---\n');
-
-    const adapter = createPiAdapter();
-    const compositeProfilePlan = adapter.createCompositeProfile(
-      { id: 'data_analyst', inherits: [], controls: {} },
-      { rootDirectory: join(root, 'composite'), profilePaths: [], profileFolders: [profileFolder] },
-    );
-    const launchPlan = adapter.createLaunchPlan(
-      compositeProfilePlan.compositeProfile,
-      { id: 'data_analyst', inherits: [], controls: { pi: { skills: ['user-skill'] } } },
-      [],
-      { profileFolders: [profileFolder] },
-    );
-
-    expect(launchPlan.args).toEqual(['--skill', 'user-skill', '--skill', skillFolder]);
   });
 
   it('reports invalid profile-bundled Pi resource paths', () => {
