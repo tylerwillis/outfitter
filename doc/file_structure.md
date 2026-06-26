@@ -106,6 +106,9 @@ Outfitter is organized around clear TypeScript source boundaries, requirement do
 ├── scripts/                           # local development and formatting helper scripts
 │   ├── .deepreview                    # script-specific DeepWork review rules
 │   └── run-snapper.mjs                # pinned Snapper binary downloader/runner
+├── skills/                            # Pi package skills published with Outfitter
+│   └── outfitter/                     # default /outfitter setup guidance skill
+│       └── SKILL.md
 ├── tests/                             # automated tests
 │   ├── fixtures/                      # reusable test fixtures
 │   │   ├── integration/               # fixture-backed integration scenarios, catalog, and local .deepreview

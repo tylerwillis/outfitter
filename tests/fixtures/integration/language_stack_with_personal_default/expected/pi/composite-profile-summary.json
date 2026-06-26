@@ -14,6 +14,8 @@
     "--extension",
     "tsconfig",
     "--skill",
+    "<repo>/skills/outfitter",
+    "--skill",
     "strict-typescript",
     "--review-scope=typescript"
   ],

@@ -1,6 +1,7 @@
 // Provides the pi adapter for composite profile generation and native pi launch plans.
 import { existsSync, readdirSync, readFileSync, statSync, type Dirent } from 'node:fs';
-import { delimiter, join } from 'node:path';
+import { delimiter, dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import type { AgentAdapter, AgentLaunchPlan, AgentCompositeProfilePlan, AgentLaunchContext } from '../AgentAdapter.js';
 import {
@@ -245,9 +246,11 @@ const resolvePiStateSourcePath = (
 };
 
 const deepWorkAdditionalJobsFoldersEnv = 'DEEPWORK_ADDITIONAL_JOBS_FOLDERS';
+const packageRootDirectory = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+const builtInOutfitterSkill = join(packageRootDirectory, 'skills', 'outfitter');
 
 const createPiSkillSources = (controls: PiProfileControls, profileFolders: readonly string[]): readonly string[] => [
-  ...new Set([...(controls.skills ?? []), ...profileFolders.flatMap(skillSourcesForProfile)]),
+  ...new Set([builtInOutfitterSkill, ...(controls.skills ?? []), ...profileFolders.flatMap(skillSourcesForProfile)]),
 ];
 
 const skillSourcesForProfile = (profileFolder: string): readonly string[] => [

@@ -11,6 +11,8 @@
     "high",
     "--system-prompt",
     "./prompts/sandbox.md",
+    "--skill",
+    "<repo>/skills/outfitter",
     "--sandbox-mode"
   ],
   "launchEnv": {

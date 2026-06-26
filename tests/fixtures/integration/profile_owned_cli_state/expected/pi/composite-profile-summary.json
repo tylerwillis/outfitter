@@ -20,6 +20,8 @@
     "--extension",
     "team-extension",
     "--skill",
+    "<repo>/skills/outfitter",
+    "--skill",
     "repo-audit",
     "--pi-owned-state"
   ],

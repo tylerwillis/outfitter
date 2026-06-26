@@ -2,7 +2,16 @@
   "profileId": "ci-strict",
   "agentId": "pi",
   "launchCommand": "pi",
-  "launchArgs": ["--model", "ci-review-model", "--provider", "ci-provider", "--ci", "--no-interactive"],
+  "launchArgs": [
+    "--model",
+    "ci-review-model",
+    "--provider",
+    "ci-provider",
+    "--skill",
+    "<repo>/skills/outfitter",
+    "--ci",
+    "--no-interactive"
+  ],
   "launchEnv": {
     "PI_CODING_AGENT_DIR": "<composite-profile>",
     "OUTFITTER_FIXTURE": "strict_ci_profile",
