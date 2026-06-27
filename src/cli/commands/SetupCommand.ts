@@ -43,7 +43,7 @@ export interface SetupCommandInput {
 
 export interface SetupCommandResult {
   readonly settingsPath: string;
-  readonly defaultProfilePath: string;
+  readonly defaultProfilePath?: string;
   readonly createdSettings: boolean;
   readonly copiedStarterProfileFiles: number;
   readonly createdDefaultProfile: boolean;
@@ -71,10 +71,6 @@ export type SetupCommandDependencies = SyncCommandDependencies &
       profiles: readonly SetupProfileChoice[],
       currentDefault: string,
     ) => Promise<string>;
-    readonly selectSetupSourceImportTarget?: (
-      choices: readonly SetupSourceImportTargetChoice[],
-      defaultTarget: SetupSourceImportTarget,
-    ) => Promise<SetupSourceImportTarget>;
     readonly selectSetupSourceLaunchAction?: (profileId: string) => Promise<SetupSourcePostImportAction>;
     readonly launchSetupSourceProfile?: (input: SetupSourceLaunchInput) => Promise<void>;
     readonly runWelcome?: (
@@ -90,25 +86,6 @@ export interface SetupProfileChoice {
 }
 
 export type SetupSourceImportTarget = 'home' | 'project';
-
-export interface SetupSourceImportTargetChoice {
-  readonly target: SetupSourceImportTarget;
-  readonly label: string;
-  readonly description: string;
-}
-
-const setupSourceImportTargetChoices: readonly SetupSourceImportTargetChoice[] = [
-  {
-    target: 'home',
-    label: 'User home',
-    description: 'install profiles into ~/.outfitter for all repositories on this machine',
-  },
-  {
-    target: 'project',
-    label: 'Current project',
-    description: 'install profiles into this project .outfitter folder only',
-  },
-];
 
 const builtInSetupProfileChoices: readonly SetupProfileChoice[] = [
   {
@@ -176,7 +153,10 @@ export const executeSetupCommand = async (
     : await selectDefaultProfileIfInteractive(input, settingsPath, defaultProfileId, dependencies, starterLayout);
   const welcomeResult = await runWelcomeAfterInteractiveSetup(input, dependencies);
   const welcomeProfile = persistWelcomeProfileForSetup(input, settingsPath, welcomeResult);
-  const finalDefaultProfile = prepareFinalDefaultProfile(input.homeDirectory, selectedDefaultProfileId, welcomeProfile);
+  const finalDefaultProfile =
+    initialSettingsMissing && welcomeResult?.answered === false
+      ? prepareSkippedWelcomeProfile(settingsPath)
+      : prepareFinalDefaultProfile(input.homeDirectory, selectedDefaultProfileId, welcomeProfile);
 
   return {
     settingsPath,
@@ -197,7 +177,7 @@ export const executeSetupCommand = async (
       createdDefaultProfile: finalDefaultProfile.created,
       syncResult,
       welcomeProfileMessages: welcomeProfile?.messages ?? [],
-      runExampleMessages: input.setupSourceUri === undefined ? [] : [formatRunProfileExample(finalDefaultProfile.id)],
+      runExampleMessages: buildRunExampleMessages(input, finalDefaultProfile.id),
     }),
   };
 };
@@ -304,10 +284,15 @@ const executeInteractiveSetupSourceCommand = async ({
 };
 
 interface FinalDefaultProfile {
-  readonly id: string;
-  readonly path: string;
+  readonly id?: string;
+  readonly path?: string;
   readonly created: boolean;
 }
+
+const prepareSkippedWelcomeProfile = (settingsPath: string): FinalDefaultProfile => {
+  writeFileSync(settingsPath, 'profile_sources: []\n');
+  return { created: false };
+};
 
 const prepareFinalDefaultProfile = (
   homeDirectory: string,
@@ -330,8 +315,8 @@ interface SetupMessageInput {
   readonly profileTargetPath?: string;
   readonly createdSettings: boolean;
   readonly copiedStarterProfileFiles: number;
-  readonly defaultProfileId: string;
-  readonly defaultProfilePath: string;
+  readonly defaultProfileId?: string;
+  readonly defaultProfilePath?: string;
   readonly createdDefaultProfile: boolean;
   readonly syncResult: SyncCommandResult;
   readonly welcomeProfileMessages: readonly string[];
@@ -360,22 +345,27 @@ const buildSetupMessages = (input: SetupMessageInput): readonly string[] => {
     messages.push(`Copied ${input.copiedStarterProfileFiles} starter profile file(s) into ${profileTargetPath}.`);
   }
 
-  if (shouldReportDefaultProfileStatus(input)) {
-    messages.push(
-      input.createdDefaultProfile
-        ? `Created default user profile at ${input.defaultProfilePath}.`
-        : `Default user profile at ${input.defaultProfilePath} already exists; left unchanged.`,
-    );
+  messages.push(...buildDefaultProfileMessages(input));
+
+  if (input.defaultProfileId !== undefined) {
+    messages.push(`Selected default profile '${input.defaultProfileId}'.`);
   }
 
-  messages.push(
-    `Selected default profile '${input.defaultProfileId}'.`,
-    ...input.welcomeProfileMessages,
-    ...input.runExampleMessages,
-    ...input.syncResult.messages,
-  );
+  messages.push(...input.welcomeProfileMessages, ...input.runExampleMessages, ...input.syncResult.messages);
 
   return messages;
+};
+
+const buildDefaultProfileMessages = (input: SetupMessageInput): readonly string[] => {
+  if (!shouldReportDefaultProfileStatus(input)) {
+    return [];
+  }
+
+  return [
+    input.createdDefaultProfile
+      ? `Created default user profile at ${input.defaultProfilePath}.`
+      : `Default user profile at ${input.defaultProfilePath} already exists; left unchanged.`,
+  ];
 };
 
 const shouldReportDefaultProfileStatus = (input: SetupMessageInput): boolean => {
@@ -383,11 +373,22 @@ const shouldReportDefaultProfileStatus = (input: SetupMessageInput): boolean => 
     return true;
   }
 
-  return input.input.setupSourceUri === undefined || input.starterLayout?.profilesPath === undefined;
+  return (
+    input.defaultProfilePath !== undefined &&
+    (input.input.setupSourceUri === undefined || input.starterLayout?.profilesPath === undefined)
+  );
 };
 
 const formatRunProfileExample = (profileId: string): string =>
   `Start the selected default profile either way:\n  outfitter\n  outfitter --profile ${profileId}`;
+
+const buildRunExampleMessages = (input: SetupCommandInput, defaultProfileId: string | undefined): readonly string[] => {
+  if (input.setupSourceUri === undefined || defaultProfileId === undefined) {
+    return [];
+  }
+
+  return [formatRunProfileExample(defaultProfileId)];
+};
 
 const runSetupSourcePostImportAction = async (
   input: SetupCommandInput,
@@ -861,12 +862,12 @@ const runSetupSourceOnboarding = async (
   const promptDefault = sourceDefault ?? currentDefault;
   const profiles = selectSetupPromptProfiles(input, discoveredProfiles, currentDefault, sourceDefault);
 
-  if (dependencies.selectSetupSourceImportTarget === undefined && dependencies.selectDefaultProfile === undefined) {
+  if (dependencies.selectDefaultProfile === undefined) {
     return promptForSetupSourceOnboarding(input, profiles, promptDefault, dependencies);
   }
 
   writeSetupSourceWelcome(input, profiles, resolvePromptOutput(dependencies));
-  const importTarget = await selectSetupSourceImportTarget(dependencies);
+  const importTarget = 'home' as const;
   const selectedProfileId = await selectSetupProfile(profiles, promptDefault, dependencies);
   assertValidSelectedDefaultProfile(selectedProfileId, profiles);
 
@@ -923,26 +924,6 @@ const formatSetupSourceProfileList = (profiles: readonly SetupProfileChoice[]): 
   }
 
   return `: ${profiles.map((profile) => profile.id).join(', ')}`;
-};
-
-const selectSetupSourceImportTarget = async (
-  dependencies: SetupCommandDependencies,
-): Promise<SetupSourceImportTarget> => {
-  /* v8 ignore else -- mixed dependency injection path; the full readline path prompts with one shared readline. */
-  if (dependencies.selectSetupSourceImportTarget !== undefined) {
-    const selectedTarget = await dependencies.selectSetupSourceImportTarget(setupSourceImportTargetChoices, 'home');
-    assertValidSetupSourceImportTarget(selectedTarget);
-    return selectedTarget;
-  }
-
-  return 'home';
-};
-
-const assertValidSetupSourceImportTarget = (target: SetupSourceImportTarget): void => {
-  /* v8 ignore next -- defensive validation for custom dependency injection. */
-  if (setupSourceImportTargetChoices.every((choice) => choice.target !== target)) {
-    throw new Error(`Selected setup-source import target '${target}' is not available.`);
-  }
 };
 
 /* v8 ignore next -- covered by interactive CLI smoke tests; unit tests inject the launch choice. */
@@ -1150,11 +1131,9 @@ const promptForSetupProfileWithReadline = async (
   const candidates = profiles.length > 0 ? profiles : [{ id: currentDefault }];
   output.write(`\n${heading}\n`);
   candidates.forEach((profile, index) => {
-    const label = profile.label === undefined ? '' : ` - ${profile.label}`;
-    output.write(`${index + 1}. ${profile.id}${label}\n`);
-    if (profile.description !== undefined) {
-      output.write(`   ${profile.description}\n`);
-    }
+    const displayName = profile.label ?? profile.id;
+    const description = profile.description === undefined ? '' : ` - ${profile.description}`;
+    output.write(`${index + 1}. ${displayName}${description}\n`);
   });
 
   const currentIndex = Math.max(

@@ -61,7 +61,7 @@ describe('welcome command', () => {
     expect(result.selectedLoadout?.selectedItems.map((item) => item.source)).toEqual(defaultLoadoutSources);
     expect(result.warnings).toEqual([]);
     expect(result.messages).toEqual([
-      'Installed the founder profile. Use /outfitter inside Pi or run `outfitter profile list` to manage profiles.',
+      'Installed the Data Analyst profile. Use /outfitter inside Pi or run `outfitter profile list` to manage profiles.',
     ]);
   });
 
@@ -116,7 +116,7 @@ describe('welcome command', () => {
     await program.parseAsync(['node', 'outfitter', 'welcome']);
 
     expect(messages).toEqual([
-      'Installed the founder profile. Use /outfitter inside Pi or run `outfitter profile list` to manage profiles.',
+      'Installed the Founder profile. Use /outfitter inside Pi or run `outfitter profile list` to manage profiles.',
     ]);
   });
 
@@ -139,7 +139,7 @@ describe('welcome command', () => {
     expect(outputText).toContain('____        _    __ _ _   _');
     expect(outputText).not.toContain('____  _');
     expect(outputText).toContain('Pi is a fully extensible agentic coding harness.');
-    expect(outputText).toContain('Press Y to install it now.');
+    expect(outputText).toContain('Press Enter to install it now, or n to skip.');
     expect(result.answered).toBe(true);
     expect(result.selectedRole?.id).toBe('founder');
     expect(result.selectedLoadout?.selectedItems.map((item) => item.source)).toEqual(defaultLoadoutSources);

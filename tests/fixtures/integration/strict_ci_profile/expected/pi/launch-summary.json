@@ -9,8 +9,6 @@
     "ci-review-model",
     "--provider",
     "ci-provider",
-    "--skill",
-    "<repo>/skills/outfitter",
     "--ci",
     "--no-interactive"
   ],

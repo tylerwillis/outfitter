@@ -2,15 +2,12 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { executeRunCommand } from '../../src/cli/commands/RunCommand.js';
 
 const temporaryRoots: string[] = [];
-const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
-const builtInOutfitterSkill = join(repositoryRoot, 'skills', 'outfitter');
 
 const createTemporaryRoot = (): string => {
   const root = mkdtempSync(join(tmpdir(), 'outfitter-template-profiles-'));
@@ -98,8 +95,6 @@ describe('template profiles', () => {
       'lead.md',
       '--append-system-prompt',
       'prose.md',
-      '--skill',
-      builtInOutfitterSkill,
     ]);
   });
 });

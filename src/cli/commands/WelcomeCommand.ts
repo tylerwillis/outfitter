@@ -76,7 +76,7 @@ const welcomeIntroLines = [
   'Outfitter configures Pi with profiles and extensions — turning it into a complete agentic development environment.',
   'The founder profile brings Pi to feature parity with dedicated agentic coding tools:',
   'task tracking, multi-step reviews, browser automation, subagents, interactive shell, and MCP support.',
-  'Press Y to install it now.',
+  'Press Enter to install it now, or n to skip.',
 ] as const;
 
 export const writeWelcomeIntro = (output: Pick<NodeJS.WritableStream, 'write'>): void => {
@@ -197,7 +197,7 @@ export const executeWelcomeCommand = async (
     selectedRole: roleResolution.role,
     selectedLoadout: loadoutResolution.loadout,
     warnings,
-    messages: buildWelcomeMessages(warnings),
+    messages: buildWelcomeMessages(roleResolution.role, warnings),
   };
 };
 
@@ -250,7 +250,9 @@ const promptForWelcomePlan = async (dependencies: WelcomeCommandDependencies): P
 
   try {
     writeWelcomeIntro(output);
-    const answer = (await readline.question('Install the founder profile? [Y/n]: ')).trim().toLowerCase();
+    const answer = (await readline.question('Install the founder profile? [Enter to install, n to skip]: '))
+      .trim()
+      .toLowerCase();
     const answerQuestions = answer === '' || ['y', 'yes'].includes(answer);
 
     if (!answerQuestions) {
@@ -306,8 +308,8 @@ const resolveSelectedLoadout = (
   };
 };
 
-const buildWelcomeMessages = (warnings: readonly string[]): readonly string[] => [
-  'Installed the founder profile. Use /outfitter inside Pi or run `outfitter profile list` to manage profiles.',
+const buildWelcomeMessages = (role: WelcomeRoleChoice, warnings: readonly string[]): readonly string[] => [
+  `Installed the ${role.label} profile. Use /outfitter inside Pi or run \`outfitter profile list\` to manage profiles.`,
   ...warnings.map((warning) => `Warning: ${warning}`),
 ];
 

@@ -11,8 +11,6 @@
     "remote-provider",
     "--thinking",
     "user-default-thinking",
-    "--skill",
-    "<repo>/skills/outfitter",
     "--local-selection",
     "--project-review",
     "--remote-baseline",

@@ -2,15 +2,12 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createPiAdapter } from '../../src/agents/pi/PiAdapter.js';
 
 const temporaryRoots: string[] = [];
-const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
-const builtInOutfitterSkill = join(repositoryRoot, 'skills', 'outfitter');
 
 afterEach(() => {
   for (const root of temporaryRoots.splice(0)) {
@@ -42,14 +39,7 @@ describe('pi adapter profile resources', () => {
       { profileFolders: [profileFolder] },
     );
 
-    expect(launchPlan.args).toEqual([
-      '--skill',
-      builtInOutfitterSkill,
-      '--skill',
-      'user-skill',
-      '--skill',
-      skillFolder,
-    ]);
+    expect(launchPlan.args).toEqual(['--skill', 'user-skill', '--skill', skillFolder]);
   });
 });
 

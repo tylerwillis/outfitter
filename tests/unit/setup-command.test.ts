@@ -332,11 +332,6 @@ describe('setup command', () => {
             }
           },
         },
-        selectSetupSourceImportTarget(choices, defaultTarget) {
-          expect(defaultTarget).toBe('home');
-          expect(choices.map((choice) => choice.target)).toEqual(['home', 'project']);
-          return Promise.resolve('home');
-        },
         selectDefaultProfile(profiles, currentDefault) {
           expect(currentDefault).toBe('engineer');
           expect(profiles.map((profile) => profile.id)).toEqual(['ops', 'project-lead']);
@@ -430,10 +425,8 @@ describe('setup command', () => {
     expect(promptOutput.indexOf('Welcome to Outfitter.')).toBeLessThan(
       promptOutput.indexOf("You're importing Outfitter profiles"),
     );
-    expect(promptOutput).toContain('1. project-lead - Project Lead');
-    expect(promptOutput).toContain('   Planning and delivery setup.');
-    expect(promptOutput).toContain('2. engineer - Engineer');
-    expect(promptOutput).toContain('   General engineering setup.');
+    expect(promptOutput).toContain('1. Project Lead - Planning and delivery setup.');
+    expect(promptOutput).toContain('2. Engineer - General engineering setup.');
     expect(promptOutput).toContain('Default profile [1]:');
     expect(promptOutput).toContain('____        _    __ _ _   _');
     expect(promptOutput).not.toContain('____  _');
@@ -503,7 +496,7 @@ describe('setup command', () => {
       expect(promptOutput).toContain("You're importing Outfitter profiles from https://example.test/link-profiles.");
       expect(promptOutput).not.toContain('Choose where to install these profiles:');
       expect(promptOutput).toContain('Choose the default profile from this setup source:');
-      expect(promptOutput).toContain('1. project-lead - Project Lead');
+      expect(promptOutput).toContain('1. Project Lead');
       expect(promptOutput).toContain('Default profile [1]:');
       expect(result.messages).toContain("Selected default profile 'project-lead'.");
     } finally {
@@ -511,7 +504,7 @@ describe('setup command', () => {
     }
   });
 
-  it('imports setup-source profiles into the project without changing the user default', async () => {
+  it('imports setup-source profiles into the user home without a scope choice', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
@@ -540,11 +533,6 @@ describe('setup command', () => {
             }
           },
         },
-        selectSetupSourceImportTarget(choices, defaultTarget) {
-          expect(defaultTarget).toBe('home');
-          expect(choices.map((choice) => choice.target)).toEqual(['home', 'project']);
-          return Promise.resolve('project');
-        },
         selectDefaultProfile(profiles, currentDefault) {
           expect(currentDefault).toBe('engineer');
           expect(profiles.map((profile) => profile.id)).toEqual(['engineer', 'project-lead']);
@@ -556,23 +544,21 @@ describe('setup command', () => {
       },
     );
 
-    expect(result.settingsPath).toBe(join(projectDirectory, '.outfitter', 'settings.yml'));
+    expect(result.settingsPath).toBe(join(homeDirectory, '.outfitter', 'settings.yml'));
     expect(result.defaultProfilePath).toBe(
-      join(projectDirectory, '.outfitter', 'profiles', 'project-lead', 'profile.yml'),
+      join(homeDirectory, '.outfitter', 'profiles', 'project-lead', 'profile.yml'),
     );
     expect(result.createdDefaultProfile).toBe(false);
     expect(result.messages.join('\n')).not.toContain('Default user profile');
     expect(result.messages.join('\n')).toContain(
       'Start the selected default profile either way:\n  outfitter\n  outfitter --profile project-lead',
     );
-    expect(readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8')).toBe(
-      'default_profile: engineer\nprofile_sources:\n  - path: ./profiles\n',
-    );
-    expect(readFileSync(join(projectDirectory, '.outfitter', 'settings.yml'), 'utf8')).toContain(
+    expect(readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8')).toContain(
       'default_profile: project-lead',
     );
-    expect(readFileSync(join(projectDirectory, '.outfitter', 'settings.yml'), 'utf8')).toContain('path: ./profiles');
-    expect(readFileSync(join(projectDirectory, '.outfitter', 'profiles', 'project-lead', 'profile.yml'), 'utf8')).toBe(
+    expect(readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8')).toContain('path: ./profiles');
+    expect(existsSync(join(projectDirectory, '.outfitter', 'settings.yml'))).toBe(false);
+    expect(readFileSync(join(homeDirectory, '.outfitter', 'profiles', 'project-lead', 'profile.yml'), 'utf8')).toBe(
       'id: project-lead\nlabel: Project Lead\ncontrols: {}\n',
     );
   });
@@ -601,9 +587,6 @@ describe('setup command', () => {
             writeFileSync(join(profileFolder, 'profile.yml'), 'id: project-lead\nlabel: Project Lead\ncontrols: {}\n');
           },
         },
-        selectSetupSourceImportTarget() {
-          return Promise.resolve('project');
-        },
         selectDefaultProfile() {
           return Promise.resolve('project-lead');
         },
@@ -624,7 +607,7 @@ describe('setup command', () => {
     expect(result.messages.join('\n')).not.toContain('outfitter --profile project-lead');
   });
 
-  it('adds a local project profile source when setup-source settings omit profile sources', async () => {
+  it('adds a local profile source when setup-source settings omit profile sources', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
@@ -645,9 +628,6 @@ describe('setup command', () => {
             writeFileSync(join(profileFolder, 'profile.yml'), 'id: project-lead\nlabel: Project Lead\ncontrols: {}\n');
           },
         },
-        selectSetupSourceImportTarget() {
-          return Promise.resolve('project');
-        },
         selectDefaultProfile(profiles, currentDefault) {
           expect(currentDefault).toBe('project-lead');
           expect(profiles.map((profile) => profile.id)).toEqual(['project-lead']);
@@ -656,10 +636,11 @@ describe('setup command', () => {
       },
     );
 
-    const projectSettings = readFileSync(join(projectDirectory, '.outfitter', 'settings.yml'), 'utf8');
-    expect(result.settingsPath).toBe(join(projectDirectory, '.outfitter', 'settings.yml'));
-    expect(projectSettings).toContain('default_profile: project-lead');
-    expect(projectSettings).toContain('path: ./profiles');
+    const homeSettings = readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8');
+    expect(result.settingsPath).toBe(join(homeDirectory, '.outfitter', 'settings.yml'));
+    expect(homeSettings).toContain('default_profile: project-lead');
+    expect(homeSettings).toContain('path: ./profiles');
+    expect(existsSync(join(projectDirectory, '.outfitter', 'settings.yml'))).toBe(false);
   });
 
   it('does not promote a setup source default absent from source profile choices', async () => {
@@ -695,11 +676,6 @@ describe('setup command', () => {
               writeFileSync(join(profileFolder, 'profile.yml'), `id: ${profileId}\nlabel: ${label}\ncontrols: {}\n`);
             }
           },
-        },
-        selectSetupSourceImportTarget(choices, defaultTarget) {
-          expect(defaultTarget).toBe('home');
-          expect(choices.map((choice) => choice.target)).toEqual(['home', 'project']);
-          return Promise.resolve('home');
         },
         selectDefaultProfile(profiles, currentDefault) {
           expect(currentDefault).toBe('engineer');
@@ -975,7 +951,7 @@ describe('setup command', () => {
       },
       warnings: [],
       messages: [
-        'Installed the founder profile. Use /outfitter inside Pi or run `outfitter profile list` to manage profiles.',
+        'Installed the Engineer profile. Use /outfitter inside Pi or run `outfitter profile list` to manage profiles.',
       ],
     });
   });

@@ -7,8 +7,6 @@
     "<composite-profile>/outfitter/outfitter-extension.js",
     "--model",
     "repo-review-model",
-    "--skill",
-    "<repo>/skills/outfitter",
     "--repo-flag"
   ],
   "launchEnv": {

@@ -2,9 +2,8 @@
 
 ## Overview
 
-Outfitter welcome onboarding gets a new user to a productive Pi session in one question. The
-recommended path installs the founder profile automatically; declining opens `/outfitter` inside Pi
-so the user can configure a profile interactively.
+Outfitter welcome onboarding gets a new user to a productive Pi session in one question.
+The recommended path installs the founder profile automatically; declining opens `/outfitter` inside Pi so the user can configure a profile interactively.
 
 ## Requirements
 
@@ -12,17 +11,17 @@ so the user can configure a profile interactively.
 
 1. Welcome text MUST be shown to the user explaining what Outfitter and Pi are and what the founder profile provides.
 2. Welcome text MUST use Outfitter-branded ASCII/text.
-3. Welcome text MUST reference `/outfitter` as the way to customize the profile after installation.
 
 > Pi is a fully extensible agentic coding harness.
 > The founder profile brings Pi to feature parity with dedicated agentic coding tools.
-> Press Y to install it now. Run /outfitter inside Pi at any time to customize your profile.
+> Press Enter to install it now, or n to skip.
 
 ### OFTR-010.2: Profile Installation
 
 1. The welcome onboarding flow MUST present a single accept/decline prompt for the founder profile.
 2. Accepting (default) MUST install the founder role and the full recommended loadout without further prompts.
-3. The founder role MUST be the default and fallback selection. Outfitter's built-in role catalog also includes `engineer` and `data_analyst`; these are accessible via `/outfitter` after first run.
+3. The founder role MUST be the default and fallback selection.
+   Outfitter's built-in role catalog also includes `engineer` and `data_analyst`; these are accessible via `/outfitter` after first run.
 4. If the accepted role cannot be mapped to an available standard profile, Outfitter MUST warn the user and choose a deterministic fallback role rather than silently ignoring the selection.
 
 ### OFTR-010.3: Loadout
@@ -41,8 +40,11 @@ so the user can configure a profile interactively.
 2. If Pi is not logged in after the welcome flow, Outfitter MUST automatically invoke Pi's `/login` flow when Pi starts.
 3. When Outfitter launches Pi outside the welcome flow and Pi does not appear to be logged in, Outfitter MUST inform the user to run `/login` inside Pi.
 4. Pi login setup MUST NOT ask Outfitter to collect, echo, or persist provider API keys.
+5. If the welcome profile was declined and Pi is not logged in, `/login` MUST run first; after login state exists, Outfitter MUST invoke `/outfitter`.
+6. Pi startup text MUST reference `/outfitter` as the way to customize the profile after installation.
 
 ### OFTR-010.5: Decline Path
 
 1. If the user declines the welcome profile, Outfitter MUST launch Pi with `/outfitter` prefilled and auto-submitted so the user can configure a profile interactively on first session start.
 2. The profile install target MUST always be the user home directory (`~/.outfitter`); no installation scope prompt MUST be shown.
+3. If the user declines the welcome profile during first-run setup, Outfitter MUST NOT persist a default profile or configured profile source before opening `/outfitter`.

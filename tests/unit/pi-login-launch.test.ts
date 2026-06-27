@@ -50,10 +50,15 @@ describe('preparePiLoginLaunchPlan', () => {
     });
 
     const header = readExtension(plan, 'outfitter-extension.js');
+    expect(header).toContain('pi.on("resources_discover"');
+    expect(header).toContain('skillPaths: [outfitterSkillPath]');
+    expect(header).toContain('/skills/outfitter/SKILL.md');
+    expect(header).toContain('const openLogin = false;');
     expect(header).toContain('ctx.ui.setHeader');
     expect(header).toContain(
       'Outfitter + Pi can explain its own features and look up its docs. Ask it how to use or extend Pi or outfitter profiles.',
     );
+    expect(header).toContain('Run /outfitter inside Pi at any time to customize your profile.');
     // Guards against running outside the interactive TUI.
     expect(header).toContain('if (ctx.mode !== "tui") return;');
   });
@@ -95,7 +100,33 @@ describe('preparePiLoginLaunchPlan', () => {
     });
 
     expect(() => readExtension(plan, 'outfitter-extension.js')).not.toThrow();
-    expect(() => readExtension(plan, 'prefill-login-extension.js')).not.toThrow();
+    const extension = readExtension(plan, 'outfitter-extension.js');
+    expect(extension).toContain('const openLogin = true;');
+    expect(extension).toContain('const openOutfitterAfterLogin = false;');
+    expect(extension).toContain('setEditorText(command)');
+    expect(extension).toContain('submitCommand(ctx, "/login")');
+    expect(messages.some((message) => message.includes('/login'))).toBe(true);
+  });
+
+  it('uses one extension to open login before outfitter after a declined welcome', () => {
+    const agentDir = createAgentDir();
+    const messages: string[] = [];
+    const plan = preparePiLoginLaunchPlan({
+      adapterId: 'pi',
+      homeDirectory: agentDir,
+      launchPlan: createLaunchPlan(agentDir),
+      setupResult: { welcomeResult: { answered: false } } as never,
+      writeLine: (message) => messages.push(message),
+    });
+
+    expect(extensionPaths(plan)).toHaveLength(1);
+    const extension = readExtension(plan, 'outfitter-extension.js');
+    expect(extension).toContain('ctx.ui.setHeader');
+    expect(extension).toContain('const openLogin = true;');
+    expect(extension).toContain('const openOutfitterAfterLogin = true;');
+    expect(extension).toContain('submitCommand(ctx, "/login")');
+    expect(extension).toContain('waitForProvider(ctx)');
+    expect(extension).toContain('submitCommand(ctx, "/outfitter")');
     expect(messages.some((message) => message.includes('/login'))).toBe(true);
   });
 });

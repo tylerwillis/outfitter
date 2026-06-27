@@ -18,8 +18,6 @@
     "--extension",
     "personal-lint",
     "--skill",
-    "<repo>/skills/outfitter",
-    "--skill",
     "code-review",
     "--pi-local-flag"
   ],

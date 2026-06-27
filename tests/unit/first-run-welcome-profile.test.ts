@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { persistFirstRunWelcomeProfile } from '../../src/cli/commands/FirstRunWelcomeProfile.js';
 import { executeRunCommand } from '../../src/cli/commands/RunCommand.js';
+import { executeListProfilesCommand } from '../../src/cli/commands/profile/ListCommand.js';
 
 const temporaryRoots: string[] = [];
 
@@ -83,7 +84,7 @@ afterEach(() => {
 describe('first-run welcome profile', () => {
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.1).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('leaves first-run welcome opt-out on the generated role profile before launching pi', async () => {
+  it('leaves first-run welcome opt-out with no configured profiles before launching pi', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
@@ -112,14 +113,11 @@ describe('first-run welcome profile', () => {
       },
     );
 
-    expect(result.profileId).toBe('engineer');
+    expect(result.profileId).toBe('outfitter_setup');
     expect(launches).toHaveLength(1);
-    expect(readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8')).toContain(
-      'default_profile: engineer',
-    );
-    expect(readFileSync(join(homeDirectory, '.outfitter', 'profiles', 'engineer', 'profile.yml'), 'utf8')).toBe(
-      'id: engineer\nlabel: Default\ncontrols: {}\n',
-    );
+    expect(readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8')).toBe('profile_sources: []\n');
+    expect(existsSync(join(homeDirectory, '.outfitter', 'profiles', 'engineer', 'profile.yml'))).toBe(false);
+    expect(executeListProfilesCommand({ homeDirectory, projectDirectory }).messages).toEqual(['No profiles found.']);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.2, OFTR-010.3).
@@ -200,7 +198,7 @@ describe('first-run welcome profile', () => {
 
     expect(result.launchPlan.args[0]).toBe('--extension');
     const loginExtensionContent = readFileSync(result.launchPlan.args[1] ?? '', 'utf8');
-    expect(loginExtensionContent).toContain('setEditorText("/login")');
+    expect(loginExtensionContent).toContain('submitCommand(ctx, "/login")');
     expect(loginExtensionContent).toContain('handleInput?.("\\r")');
     expect(messages).toContain(
       'Pi does not appear to be logged in yet. Outfitter will open `/login` automatically after Pi starts.',

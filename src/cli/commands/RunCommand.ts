@@ -77,7 +77,9 @@ export const executeRunCommand = async (
   dependencies: RunCommandDependencies = {},
 ): Promise<RunCommandResult> => {
   const setupResult = await runSetupIfNeeded(input, dependencies);
-  const resolvedProfile = loadResolvedProfile(input);
+  const resolvedProfile = shouldLaunchOutfitterSetupProfile(setupResult, input)
+    ? loadOutfitterSetupProfile(input)
+    : loadResolvedProfile(input);
   const adapter =
     dependencies.adapter ?? createAgentAdapter(selectRunAgentId(input.agentId, resolvedProfile.settings.defaultAgent));
   const compositeProfileRootDirectory = createCompositeProfileRootDirectory(resolvedProfile.profile.id, adapter.id);
@@ -410,6 +412,31 @@ const loadResolvedProfile = (input: RunCommandInput): ResolvedRunProfile => {
     profileLayers: findContributingLoadedProfiles(resolution.profileStack, loadedProfiles.profiles),
     profilePaths: findContributingProfilePaths(resolution.profileStack, loadedProfiles.profiles),
     profileFolders: findContributingProfileFolders(resolution.profileStack, loadedProfiles.profiles),
+    homeDirectory: input.homeDirectory,
+    cacheDirectory: loadedSettings.settings.cacheDirectory ?? join(input.homeDirectory, '.outfitter', 'cache'),
+    projectDirectory: input.projectDirectory,
+    settings: loadedSettings.settings,
+    settingsPaths: loadedSettings.files.map((file) => file.location.path),
+  };
+};
+
+const shouldLaunchOutfitterSetupProfile = (
+  setupResult: SetupCommandResult | undefined,
+  input: RunCommandInput,
+): boolean => setupResult?.welcomeResult?.answered === false && input.profileId === undefined;
+
+const loadOutfitterSetupProfile = (input: RunCommandInput): ResolvedRunProfile => {
+  const loadedSettings = loadSettingsWithCachedRemoteSettings(input);
+
+  if (loadedSettings.issues.length > 0) {
+    throw new Error(`Cannot run with invalid settings: ${loadedSettings.issues.map(formatSettingsIssue).join('; ')}`);
+  }
+
+  return {
+    profile: { id: 'outfitter_setup', label: 'Outfitter setup', inherits: [], controls: {} },
+    profileLayers: [],
+    profilePaths: [],
+    profileFolders: [],
     homeDirectory: input.homeDirectory,
     cacheDirectory: loadedSettings.settings.cacheDirectory ?? join(input.homeDirectory, '.outfitter', 'cache'),
     projectDirectory: input.projectDirectory,

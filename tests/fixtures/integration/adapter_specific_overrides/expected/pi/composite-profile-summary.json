@@ -24,8 +24,6 @@
     "--extension",
     "./tools/generic-extension",
     "--skill",
-    "<repo>/skills/outfitter",
-    "--skill",
     "repo-review",
     "--pi-flag"
   ],

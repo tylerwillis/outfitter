@@ -9,8 +9,6 @@
     "fallback-review-model",
     "--provider",
     "openai",
-    "--skill",
-    "<repo>/skills/outfitter",
     "--native-fallback-fixture"
   ],
   "launchEnv": {
