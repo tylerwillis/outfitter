@@ -74,9 +74,9 @@ const welcomeIntroLines = [
   'Welcome to Outfitter.',
   'Pi is a fully extensible agentic coding harness.',
   'Outfitter configures Pi with profiles and extensions — turning it into a complete agentic development environment.',
+  '',
   'The founder profile brings Pi to feature parity with dedicated agentic coding tools:',
   'task tracking, multi-step reviews, browser automation, subagents, interactive shell, and MCP support.',
-  'Press Y to install it now.',
 ] as const;
 
 export const writeWelcomeIntro = (output: Pick<NodeJS.WritableStream, 'write'>): void => {

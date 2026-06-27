@@ -210,9 +210,9 @@ describe('run command', () => {
       },
     );
 
+    expect(messages).not.toContain('`outfitter setup` has not been run yet - running now');
     expect(messages).toEqual(
       expect.arrayContaining([
-        '`outfitter setup` has not been run yet - running now',
         'Pi does not appear to be logged in yet. After Pi starts, run `/login` and choose a subscription such as Codex or provide an API key from another model provider.',
         '→ resolving profile engineer',
         `✓ profile layer engineer  ${join(homeDirectory, '.outfitter', 'profiles', 'engineer')}`,

@@ -358,8 +358,6 @@ const runSetupIfNeeded = async (
     return undefined;
   }
 
-  /* v8 ignore next -- console fallback is direct CLI behavior; tests inject a writer. */
-  (dependencies.writeLine ?? console.log)('`outfitter setup` has not been run yet - running now');
   return executeSetupCommand(input, { ...dependencies, interactive: shouldRunFirstSetupInteractively(dependencies) });
 };
 
