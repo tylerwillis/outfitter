@@ -139,7 +139,11 @@ describe('welcome command', () => {
     expect(outputText).toContain('____        _    __ _ _   _');
     expect(outputText).not.toContain('____  _');
     expect(outputText).toContain('Pi is a fully extensible agentic coding harness.');
-    expect(outputText).toContain('Press Y to install it now.');
+    expect(outputText).toContain(
+      '\n\nThe founder profile brings Pi to feature parity with dedicated agentic coding tools:',
+    );
+    expect(outputText).not.toContain('Press Y to install it now.');
+    expect(outputText).toContain('Install the founder profile? [Y/n]:');
     expect(result.answered).toBe(true);
     expect(result.selectedRole?.id).toBe('founder');
     expect(result.selectedLoadout?.selectedItems.map((item) => item.source)).toEqual(defaultLoadoutSources);

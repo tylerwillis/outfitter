@@ -14,7 +14,7 @@ The `run` command assembles a temporary agent-specific configuration directory c
 4. The `run` command MUST accept `-p` and `--profile` options for selecting the profile.
 5. The `run` command MUST use the resolved default profile when no profile option is provided.
 6. The `run` command MUST pass unrecognized arguments through to the selected agent CLI unaltered.
-7. When invoked before user setup has created `~/.outfitter/settings.yml`, the default `run` command MUST print `` `outfitter setup` has not been run yet - running now `` and execute setup before resolving the profile.
+7. When invoked before user setup has created `~/.outfitter/settings.yml`, the default `run` command MUST execute setup before resolving the profile without printing a separate pre-setup announcement.
 
 ### OFTR-005.2: Composite profile Definition
 

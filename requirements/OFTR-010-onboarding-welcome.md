@@ -16,7 +16,7 @@ so the user can configure a profile interactively.
 
 > Pi is a fully extensible agentic coding harness.
 > The founder profile brings Pi to feature parity with dedicated agentic coding tools.
-> Press Y to install it now. Run /outfitter inside Pi at any time to customize your profile.
+> Run /outfitter inside Pi at any time to customize your profile.
 
 ### OFTR-010.2: Profile Installation
 
