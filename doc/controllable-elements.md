@@ -100,9 +100,9 @@ Project or profile files automatically loaded into context.
 
 ### Theme / UI Presentation
 
-Terminal UI theme and presentation settings.
+Terminal UI theme, keybindings, and presentation settings.
 
-- Pi name: themes, `--theme`, `--no-themes`
+- Pi name: themes, `--theme`, `--no-themes`, `keybindings.json`; Outfitter reserves `Shift+Tab` for mode switching and maps thinking-level cycling to `Ctrl+Shift+T`
 - Claude name: UI/theme controls, roadmap adapter mapping
 
 ### Project Override Policy

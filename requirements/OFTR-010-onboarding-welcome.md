@@ -39,8 +39,9 @@ so the user can configure a profile interactively.
 
 1. Before launching Pi after the welcome flow, Outfitter MUST detect whether native Pi appears to have no configured login state.
 2. If Pi is not logged in after the welcome flow, Outfitter MUST automatically invoke Pi's `/login` flow when Pi starts.
-3. When Outfitter launches Pi outside the welcome flow and Pi does not appear to be logged in, Outfitter MUST inform the user to run `/login` inside Pi.
-4. Pi login setup MUST NOT ask Outfitter to collect, echo, or persist provider API keys.
+3. When Outfitter launches Pi interactively outside the welcome flow and Pi does not appear to be logged in, Outfitter MUST inform the user to run `/login` inside Pi.
+4. Non-interactive Pi launches MUST NOT auto-open `/login` or emit login guidance into the launch output stream.
+5. Pi login setup MUST NOT ask Outfitter to collect, echo, or persist provider API keys.
 
 ### OFTR-010.5: Decline Path
 

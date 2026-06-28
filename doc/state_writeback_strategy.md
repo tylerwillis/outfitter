@@ -56,16 +56,15 @@ The user-facing state update lifecycle is:
 ## Profile stack and native fallback
 
 State persistence is a normal profile setting.
-Its strategy overrides resolve through the same profile stack as other profile data:
+Its strategy overrides resolve through the same selected-profile stack as other profile data. When the user provides `--profile X`, only definitions of `X` and its explicit inheritance chain participate; the configured `default_profile` is selected only when no explicit profile is provided.
 
 ```text
-project-local profile
-project profile
-user profile
-URI/cache profiles
+project-local definition of selected profile
+project definition of selected profile
+user definition of selected profile
+URI/cache definitions of selected profile
 explicit inheritance
-implicit user default profile
-Outfitter default profile
+Outfitter defaults
 ```
 
 Native CLI state is not represented as an extra profile layer.
@@ -96,6 +95,14 @@ state_paths:
       declared path as discard for that launch. That discard handling is
       adapter-internal; users still cannot request settings.json: discard
       because discard is not listed in allowed_strategies.
+
+  keybindings.json:
+    default_strategy: symlink
+    allowed_strategies: [symlink, warn, error, prompt]
+    note: >-
+      Outfitter generates a transformed runtime keybindings.json so Shift+Tab
+      can switch Outfitter modes and Ctrl+Shift+T can cycle Pi thinking levels.
+      The generated runtime file is treated as discard for that launch.
 
   mcp.json:
     default_strategy: symlink
@@ -195,6 +202,7 @@ profiles/
       pi/
         auth.json
         settings.json
+        keybindings.json
         plugins/
       claude/
         settings.json

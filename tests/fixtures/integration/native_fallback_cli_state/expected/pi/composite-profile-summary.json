@@ -11,10 +11,13 @@
     "openai",
     "--skill",
     "<repo>/skills/outfitter",
+    "--skill",
+    "<project>/.outfitter/profiles/fallback-review/skills/review-skill",
     "--native-fallback-fixture"
   ],
   "launchEnv": {
     "PI_CODING_AGENT_DIR": "<composite-profile>",
+    "DEEPWORK_ADDITIONAL_JOBS_FOLDERS": "<project>/.outfitter/profiles/fallback-review/deepwork/jobs",
     "FALLBACK_LAYER": "project",
     "PROJECT_NATIVE_FALLBACK": "enabled"
   },
@@ -31,10 +34,23 @@
       "args": ["--native-fallback-fixture"]
     }
   },
+  "generatedKeybindings": {
+    "app.thinking.cycle": ["alt+t", "ctrl+shift+t"],
+    "app.model.select": []
+  },
+  "nativeModels": {
+    "models": {
+      "fallback-review-model": {
+        "provider": "openai",
+        "model": "fallback-review-model"
+      }
+    }
+  },
   "stateTargets": {
     "auth.json": "<home>/.pi/agent/auth.json",
     "settings.json": "<home>/.pi/agent/settings.json",
     "mcp.json": "<home>/.pi/agent/mcp.json",
+    "models.json": "<home>/.pi/agent/models.json",
     "plugins": "<home>/.pi/agent/plugins",
     "cache": "<home>/.pi/agent/cache",
     "sessions": "<home>/.pi/agent/sessions",

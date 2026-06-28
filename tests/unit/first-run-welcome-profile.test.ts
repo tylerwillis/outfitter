@@ -218,7 +218,7 @@ describe('first-run welcome profile', () => {
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.4).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
-  it('leaves non-interactive pi launches on a manual login notice after welcome', async () => {
+  it('leaves non-interactive pi launches without login prefill or login guidance after welcome', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
@@ -248,7 +248,8 @@ describe('first-run welcome profile', () => {
 
     expect(result.launchPlan.args).toContain('--print');
     expect(result.launchPlan.args.slice(-2)).toEqual(['--print', 'hello']);
-    expect(messages).toContain(
+    expect(result.launchPlan.args).not.toContain('prefill-login-extension.js');
+    expect(messages).not.toContain(
       'Pi does not appear to be logged in yet. After Pi starts, run `/login` and choose a subscription such as Codex or provide an API key from another model provider.',
     );
   });

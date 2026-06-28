@@ -1,6 +1,6 @@
 // Provides the pi adapter for composite profile generation and native pi launch plans.
 import { existsSync, readdirSync, readFileSync, statSync, type Dirent } from 'node:fs';
-import { delimiter, dirname, join } from 'node:path';
+import { delimiter, dirname, isAbsolute, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import type { AgentAdapter, AgentLaunchPlan, AgentCompositeProfilePlan, AgentLaunchContext } from '../AgentAdapter.js';
@@ -30,6 +30,7 @@ const piControlNames = new Set([
 const piStatePathDeclarations = {
   'auth.json': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'error', 'prompt'] },
   'settings.json': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'warn', 'error', 'prompt'] },
+  'keybindings.json': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'warn', 'error', 'prompt'] },
   'mcp.json': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'warn', 'error', 'prompt'] },
   'models.json': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'warn', 'error', 'prompt'] },
   'trust.json': { defaultStrategy: 'symlink', allowedStrategies: ['symlink', 'warn', 'error', 'prompt'] },
@@ -57,6 +58,11 @@ export const createPiAdapter = (): AgentAdapter => ({
   createCompositeProfile(profile: Profile, input): AgentCompositeProfilePlan {
     const statePaths = createPiStatePaths(profile, input);
     const transformedSettingsFile = createPiSettingsTransformFile(profile, input, statePaths);
+    const transformedKeybindingsFile = createPiKeybindingsTransformFile(input, statePaths);
+    const transformedStatePaths = markPiTransformedStatePathsDiscarded(statePaths, [
+      ...(transformedSettingsFile === undefined ? [] : ['settings.json']),
+      'keybindings.json',
+    ]);
     const compositeProfile = createCompositeProfile(
       input.rootDirectory,
       [
@@ -69,8 +75,9 @@ export const createPiAdapter = (): AgentAdapter => ({
         }),
         createPiMcpConfigFile(input.rootDirectory, input.profileFolders),
         transformedSettingsFile,
+        transformedKeybindingsFile,
       ].filter((file) => file !== undefined),
-      transformedSettingsFile === undefined ? statePaths : markPiSettingsStatePathDiscarded(statePaths),
+      transformedStatePaths,
     );
 
     return {
@@ -110,14 +117,18 @@ type PiSettingsDocument = Readonly<Record<string, unknown>> & {
   readonly packages?: unknown;
 };
 
-const markPiSettingsStatePathDiscarded = (
+const markPiTransformedStatePathsDiscarded = (
   statePaths: readonly CompositeProfileStatePath[],
-): readonly CompositeProfileStatePath[] =>
-  statePaths.map((statePath) =>
-    statePath.relativePath === 'settings.json'
+  transformedRelativePaths: readonly string[],
+): readonly CompositeProfileStatePath[] => {
+  const transformedRelativePathSet = new Set(transformedRelativePaths);
+
+  return statePaths.map((statePath) =>
+    transformedRelativePathSet.has(statePath.relativePath)
       ? { relativePath: statePath.relativePath, strategy: 'discard', directory: statePath.directory }
       : statePath,
   );
+};
 
 const createPiSettingsTransformFile = (
   profile: Profile,
@@ -185,6 +196,158 @@ const readPiSettingsDocument = (settingsPath: string): PiSettingsDocument | unde
 
 const isPiSettingsDocument = (value: unknown): value is PiSettingsDocument =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
+
+type PiKeybindingsDocument = Readonly<Record<string, unknown>>;
+
+const piModeCycleKey = 'shift+tab';
+const piThinkingCycleKey = 'ctrl+shift+t';
+const piThinkingCycleKeybindingId = 'app.thinking.cycle';
+const legacyPiKeybindingIds = {
+  cycleThinkingLevel: piThinkingCycleKeybindingId,
+} as const satisfies Readonly<Record<string, string>>;
+
+const createPiKeybindingsTransformFile = (
+  input: {
+    readonly rootDirectory: string;
+    readonly profilePaths: readonly string[];
+    readonly profileFolders?: readonly string[];
+    readonly homeDirectory?: string;
+  },
+  statePaths: readonly CompositeProfileStatePath[],
+): ReturnType<typeof createCompositeProfileFile> => {
+  const keybindingsStatePath = statePaths.find((statePath) => statePath.relativePath === 'keybindings.json');
+  const sourcePath = keybindingsStatePath?.sourcePath;
+  const shouldReadSource =
+    sourcePath !== undefined && existsSync(sourcePath) && shouldReadPiKeybindingsSource(sourcePath, input);
+  const sourceInputs = [...(shouldReadSource ? [sourcePath] : []), ...input.profilePaths];
+  const keybindings = rewritePiKeybindingsForOutfitterModeSwitch(
+    shouldReadSource ? readPiKeybindingsDocument(sourcePath) : {},
+  );
+
+  return createCompositeProfileFile({
+    rootDirectory: input.rootDirectory,
+    relativePath: 'keybindings.json',
+    content: `${JSON.stringify(keybindings, null, 2)}\n`,
+    sourceInputs,
+    strategy: 'transform',
+  });
+};
+
+const shouldReadPiKeybindingsSource = (
+  sourcePath: string,
+  input: { readonly homeDirectory?: string; readonly profileFolders?: readonly string[] },
+): boolean =>
+  input.homeDirectory !== undefined || (input.profileFolders ?? []).some((folder) => isPathInside(sourcePath, folder));
+
+const isPathInside = (path: string, directory: string): boolean => {
+  const relativePath = relative(directory, path);
+  return relativePath === '' || (!relativePath.startsWith('..') && !isAbsolute(relativePath));
+};
+
+const readPiKeybindingsDocument = (keybindingsPath: string): PiKeybindingsDocument => {
+  let content: string;
+
+  try {
+    content = readFileSync(keybindingsPath, 'utf8');
+  } catch (error) {
+    throw new Error(`Could not read pi keybindings file '${keybindingsPath}': ${String(error)}`, { cause: error });
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(content);
+
+    if (!isPiKeybindingsDocument(parsed)) {
+      throw new Error(`Pi keybindings file '${keybindingsPath}' must contain a JSON object.`);
+    }
+
+    return parsed;
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new Error(`Could not parse pi keybindings file '${keybindingsPath}': ${error.message}`, { cause: error });
+    }
+
+    throw error;
+  }
+};
+
+const isPiKeybindingsDocument = (value: unknown): value is PiKeybindingsDocument =>
+  value !== null && typeof value === 'object' && !Array.isArray(value);
+
+const rewritePiKeybindingsForOutfitterModeSwitch = (
+  keybindings: PiKeybindingsDocument,
+): Record<string, string | string[]> => {
+  const rewritten: Record<string, string | string[]> = {};
+
+  for (const [keybindingId, binding] of Object.entries(keybindings)) {
+    if (!isPiKeybindingValue(binding)) {
+      continue;
+    }
+
+    const normalizedKeybindingId = normalizePiKeybindingId(keybindingId);
+    rewritten[normalizedKeybindingId] = appendUniquePiKeys(
+      toPiKeybindingArray(rewritten[normalizedKeybindingId] ?? []),
+      filterReservedOutfitterKeys(toPiKeybindingArray(binding)),
+    );
+  }
+
+  rewritten[piThinkingCycleKeybindingId] = appendUniquePiKeys(
+    filterReservedOutfitterKeys(toPiKeybindingArray(rewritten[piThinkingCycleKeybindingId] ?? [])),
+    [piThinkingCycleKey],
+  );
+
+  return rewritten;
+};
+
+const normalizePiKeybindingId = (keybindingId: string): string =>
+  keybindingId in legacyPiKeybindingIds
+    ? legacyPiKeybindingIds[keybindingId as keyof typeof legacyPiKeybindingIds]
+    : keybindingId;
+
+const isPiKeybindingValue = (value: unknown): value is string | readonly string[] =>
+  typeof value === 'string' || (Array.isArray(value) && value.every((entry) => typeof entry === 'string'));
+
+const toPiKeybindingArray = (value: string | readonly string[]): string[] =>
+  typeof value === 'string' ? [value] : [...value];
+
+const filterReservedOutfitterKeys = (keys: readonly string[]): string[] =>
+  keys.filter(
+    (key) =>
+      !keysMatchIgnoringModifierOrder(key, piModeCycleKey) && !keysMatchIgnoringModifierOrder(key, piThinkingCycleKey),
+  );
+
+const appendUniquePiKeys = (existingKeys: readonly string[], nextKeys: readonly string[]): string[] => {
+  const existingKeySet = new Set(existingKeys.map(normalizePiKey));
+  const mergedKeys = [...existingKeys];
+
+  for (const key of nextKeys) {
+    const normalizedKey = normalizePiKey(key);
+
+    if (existingKeySet.has(normalizedKey)) {
+      continue;
+    }
+
+    existingKeySet.add(normalizedKey);
+    mergedKeys.push(key);
+  }
+
+  return mergedKeys;
+};
+
+const keysMatchIgnoringModifierOrder = (left: string, right: string): boolean =>
+  normalizePiKey(left) === normalizePiKey(right);
+
+const normalizePiKey = (key: string): string => {
+  const parts = key
+    .toLowerCase()
+    .split('+')
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
+  const keyName = parts.at(-1) ?? '';
+  const modifiers = new Set(parts.slice(0, -1));
+  const sortedModifiers = ['ctrl', 'shift', 'alt'].filter((modifier) => modifiers.has(modifier));
+
+  return [...sortedModifiers, keyName].join('+');
+};
 
 const createPiStatePaths = (
   profile: Profile,

@@ -1,0 +1,8 @@
+{
+  "models": {
+    "fallback-review-model": {
+      "provider": "openai",
+      "model": "fallback-review-model"
+    }
+  }
+}

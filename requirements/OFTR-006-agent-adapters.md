@@ -64,3 +64,13 @@ Pi is the default and primary supported adapter; Claude Code is also supported t
 3. The pi adapter MUST preserve unrelated Pi settings and unrelated package entries when generating a reconciled runtime `settings.json`.
 4. The pi adapter MUST keep reconciled runtime `settings.json` writes non-durable and declared so they are discarded without being reported as unknown state.
 5. The pi adapter MUST fall back to native Pi `settings.json` state persistence when reconciliation is unnecessary or the settings file cannot be interpreted safely.
+
+### OFTR-006.7: Outfitter Pi Interaction Defaults
+
+1. The pi adapter MUST generate a runtime `keybindings.json` that reserves `shift+tab` for Outfitter mode switching and binds Pi thinking-level cycling to `ctrl+shift+t`.
+2. The generated Pi keybindings file MUST preserve valid user or profile keybindings except for keys reserved by Outfitter's mode and thinking controls.
+3. The generated Pi keybindings file MUST be non-durable runtime state so Outfitter's default shortcut policy does not overwrite user or profile keybinding sources.
+4. Interactive Pi launches MUST inject an Outfitter bootstrap extension that consumes `shift+tab` before Pi's default thinking shortcut can handle it.
+5. The Outfitter bootstrap extension MUST toggle between normal build mode and read-only plan mode.
+6. Plan mode MUST restrict active tools to read-only inspection tools, exclude Bash from the active tool set, and block Bash tool calls while plan mode is active.
+7. Non-interactive Pi launches MUST NOT inject the Outfitter bootstrap extension.

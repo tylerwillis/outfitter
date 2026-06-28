@@ -21,7 +21,7 @@ afterEach(() => {
 });
 
 describe('integration fixture composite profile generation', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.3, OFTR-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.5, OFTR-005.3, OFTR-005.6).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('runs a repo-only selected profile without composing the user default and uses native fallback state', async () => {
     const fixture = copyFixtureToTemp('trivial_repo_only_profile');
@@ -114,7 +114,7 @@ describe('integration fixture composite profile generation', () => {
     expect(warnings).toEqual([]);
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.2, OFTR-005.3).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.2, OFTR-003.5, OFTR-005.3).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('runs a realistic TypeScript profile stack without composing the user default', async () => {
     const fixture = copyFixtureToTemp('language_stack_with_personal_default');
@@ -386,7 +386,7 @@ describe('integration fixture composite profile generation', () => {
     );
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.3, OFTR-005.6).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-005.3, OFTR-005.6, OFTR-006.3, OFTR-006.7).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('creates and owns pi native fallback state when profiles provide no cli-specific state', async () => {
     const fixture = copyFixtureToTemp('native_fallback_cli_state');
@@ -407,17 +407,27 @@ describe('integration fixture composite profile generation', () => {
             launchArgs: plan.args.map((arg) => tokenizeFixturePath(fixture, arg, compositeProfileRoot)),
             launchEnv: {
               PI_CODING_AGENT_DIR: tokenizeFixturePath(fixture, plan.env.PI_CODING_AGENT_DIR, compositeProfileRoot),
+              DEEPWORK_ADDITIONAL_JOBS_FOLDERS: tokenizeFixturePath(
+                fixture,
+                plan.env.DEEPWORK_ADDITIONAL_JOBS_FOLDERS,
+                compositeProfileRoot,
+              ),
               FALLBACK_LAYER: plan.env.FALLBACK_LAYER,
               PROJECT_NATIVE_FALLBACK: plan.env.PROJECT_NATIVE_FALLBACK,
             },
             generatedProfile: JSON.parse(
               readFileSync(join(compositeProfileRoot, 'outfitter', 'profile.json'), 'utf8'),
             ) as unknown,
+            generatedKeybindings: JSON.parse(
+              readFileSync(join(compositeProfileRoot, 'keybindings.json'), 'utf8'),
+            ) as unknown,
+            nativeModels: JSON.parse(readFileSync(join(compositeProfileRoot, 'models.json'), 'utf8')) as unknown,
             stateTargets: Object.fromEntries(
               [
                 'auth.json',
                 'settings.json',
                 'mcp.json',
+                'models.json',
                 'plugins',
                 'cache',
                 'sessions',
@@ -472,6 +482,10 @@ describe('integration fixture composite profile generation', () => {
       '{"approval":"on-request"}\n',
     );
     expect(readFileSync(join(fixture.home, '.pi', 'agent', 'mcp.json'), 'utf8')).toBe('{"servers":{}}\n');
+    expect(readFileSync(join(fixture.home, '.pi', 'agent', 'models.json'), 'utf8')).toContain('fallback-review-model');
+    expect(readFileSync(join(fixture.home, '.pi', 'agent', 'keybindings.json'), 'utf8')).toBe(
+      '{"app.thinking.cycle":["shift+tab","alt+t"],"app.model.select":"shift+ctrl+t"}\n',
+    );
     expect(readFileSync(join(fixture.home, '.pi', 'agent', 'plugins', 'review.json'), 'utf8')).toBe(
       '{"enabled":true}\n',
     );

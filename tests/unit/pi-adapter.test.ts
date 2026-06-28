@@ -27,7 +27,7 @@ const writePiMcpConfig = (profileFolder: string, content: object | string): void
 };
 
 describe('pi adapter', () => {
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.1, OFTR-006.2, OFTR-006.3, OFTR-006.4).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-003.6, OFTR-006.1, OFTR-006.2, OFTR-006.3, OFTR-006.4).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('translates generic and pi-specific profile controls into pi env and argv', () => {
     const adapter = createPiAdapter();
@@ -529,11 +529,16 @@ const createTemporaryPiAdapterTestRoot = (prefix: string): string => {
   return root;
 };
 
-const createPiSettingsTestHome = (): { readonly homeDirectory: string; readonly settingsPath: string } => {
+const createPiSettingsTestHome = (): {
+  readonly homeDirectory: string;
+  readonly keybindingsPath: string;
+  readonly settingsPath: string;
+} => {
   const homeDirectory = createTemporaryPiAdapterTestRoot('outfitter-pi-settings-');
   const settingsDirectory = join(homeDirectory, '.pi', 'agent');
+  const keybindingsPath = join(settingsDirectory, 'keybindings.json');
   const settingsPath = join(settingsDirectory, 'settings.json');
   mkdirSync(settingsDirectory, { recursive: true });
 
-  return { homeDirectory, settingsPath };
+  return { homeDirectory, keybindingsPath, settingsPath };
 };
