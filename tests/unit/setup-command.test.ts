@@ -1,7 +1,16 @@
 /* eslint-disable max-lines */
 // Tests setup command behavior.
 import { PassThrough } from 'node:stream';
-import { existsSync, lstatSync, mkdtempSync, mkdirSync, readFileSync, readlinkSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  lstatSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  readlinkSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -302,7 +311,10 @@ describe('setup command', () => {
     const sourceOutfitterPath = join(setupSourcePath, '.outfitter');
     const promptOutput: string[] = [];
     mkdirSync(join(sourceOutfitterPath, 'profiles', 'team'), { recursive: true });
-    writeFileSync(join(sourceOutfitterPath, 'settings.yml'), 'default_profile: team\nprofile_sources:\n  - path: ./profiles\n');
+    writeFileSync(
+      join(sourceOutfitterPath, 'settings.yml'),
+      'default_profile: team\nprofile_sources:\n  - path: ./profiles\n',
+    );
     writeFileSync(join(sourceOutfitterPath, 'profiles', 'team', 'profile.yml'), 'id: team\ncontrols: {}\n');
 
     const result = await executeSetupCommand(
@@ -321,16 +333,8 @@ describe('setup command', () => {
         selectDefaultProfile: () => Promise.resolve('team'),
         selectSetupSourceLaunchAction: () => Promise.resolve('exit'),
         setupSourceSynchronizer: {
-          sync(_uri, cachePath) {
-            mkdirSync(join(cachePath, '.outfitter', 'profiles', 'team'), { recursive: true });
-            writeFileSync(
-              join(cachePath, '.outfitter', 'settings.yml'),
-              readFileSync(join(sourceOutfitterPath, 'settings.yml'), 'utf8'),
-            );
-            writeFileSync(
-              join(cachePath, '.outfitter', 'profiles', 'team', 'profile.yml'),
-              readFileSync(join(sourceOutfitterPath, 'profiles', 'team', 'profile.yml'), 'utf8'),
-            );
+          sync() {
+            throw new Error('local setup sources must be read from the live filesystem');
           },
         },
       },
@@ -344,7 +348,105 @@ describe('setup command', () => {
     expect(promptOutput.join('\n')).toContain('Local setup source detected. Copy snapshot setup is safest');
   });
 
-  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.1.27).
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.1.33).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('keeps local setup-source symlink mode atomic without mutating source settings or creating profile folders', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const setupSourcePath = join(root, 'link');
+    const sourceOutfitterPath = join(setupSourcePath, '.outfitter');
+    const sourceSettings = 'default_profile: leader\ndefault_agent: pi\nprofile_sources:\n  - path: ./profiles\n';
+    mkdirSync(join(sourceOutfitterPath, 'profiles'), { recursive: true });
+    writeFileSync(join(sourceOutfitterPath, 'settings.yml'), sourceSettings);
+    writeFileSync(
+      join(sourceOutfitterPath, 'profiles', 'leader.yml'),
+      'id: leader\nlabel: Project Leader\ncontrols: {}\n',
+    );
+    writeFileSync(
+      join(sourceOutfitterPath, 'profiles', 'platform.yml'),
+      'id: platform\nlabel: Platform Engineer\ncontrols: {}\n',
+    );
+
+    const result = await executeSetupCommand(
+      { homeDirectory, projectDirectory, setupSourceUri: setupSourcePath },
+      {
+        interactive: true,
+        input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
+        output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
+        writeLine: () => undefined,
+        selectSetupSourceImportTarget: () => Promise.resolve('project'),
+        selectSetupSourceImportMode: () => Promise.resolve('symlink'),
+        selectDefaultProfile: () => Promise.resolve('platform'),
+        selectSetupSourceLaunchAction: () => Promise.resolve('exit'),
+      },
+    );
+
+    const targetOutfitterPath = join(projectDirectory, '.outfitter');
+    expect(result.createdSettings).toBe(false);
+    expect(result.createdDefaultProfile).toBe(false);
+    expect(result.copiedStarterProfileFiles).toBe(0);
+    expect(lstatSync(targetOutfitterPath).isSymbolicLink()).toBe(true);
+    expect(readlinkSync(targetOutfitterPath)).toBe(sourceOutfitterPath);
+    expect(readFileSync(join(sourceOutfitterPath, 'settings.yml'), 'utf8')).toBe(sourceSettings);
+    expect(existsSync(join(sourceOutfitterPath, 'profiles', 'platform', 'profile.yml'))).toBe(false);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.1.8, OFTR-004.1.17, OFTR-004.1.18).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('discovers local setup-source profiles from the live .outfitter instead of the setup cache', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const setupSourcePath = join(root, 'link');
+    const sourceOutfitterPath = join(setupSourcePath, '.outfitter');
+    mkdirSync(join(sourceOutfitterPath, 'profiles'), { recursive: true });
+    writeFileSync(
+      join(sourceOutfitterPath, 'settings.yml'),
+      'default_profile: leader\nprofile_sources:\n  - path: ./profiles\n',
+    );
+    writeFileSync(
+      join(sourceOutfitterPath, 'profiles', 'leader.yml'),
+      'id: leader\nlabel: Project Leader\ncontrols: {}\n',
+    );
+    writeFileSync(
+      join(sourceOutfitterPath, 'profiles', 'platform.yml'),
+      'id: platform\nlabel: Platform Engineer\ncontrols: {}\n',
+    );
+
+    const result = await executeSetupCommand(
+      { homeDirectory, projectDirectory, setupSourceUri: setupSourcePath },
+      {
+        interactive: true,
+        input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
+        output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
+        writeLine: () => undefined,
+        setupSourceSynchronizer: {
+          sync() {
+            throw new Error('stale setup cache must not be used for local setup sources');
+          },
+        },
+        selectSetupSourceImportTarget: () => Promise.resolve('project'),
+        selectSetupSourceImportMode: () => Promise.resolve('copy'),
+        selectDefaultProfile(profiles, currentDefault) {
+          expect(currentDefault).toBe('leader');
+          expect(profiles.map((profile) => `${profile.id}:${profile.label}`)).toEqual([
+            'leader:Project Leader',
+            'platform:Platform Engineer',
+          ]);
+          return Promise.resolve('platform');
+        },
+        selectSetupSourceLaunchAction: () => Promise.resolve('exit'),
+      },
+    );
+
+    expect(result.defaultProfilePath).toBe(join(projectDirectory, '.outfitter', 'profiles', 'platform.yml'));
+    expect(readFileSync(join(projectDirectory, '.outfitter', 'settings.yml'), 'utf8')).toContain(
+      'default_profile: platform',
+    );
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.1.32).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('refuses local setup-source symlink mode into a non-empty target .outfitter directory', async () => {
     const root = createTemporaryRoot();
@@ -354,7 +456,10 @@ describe('setup command', () => {
     const sourceOutfitterPath = join(setupSourcePath, '.outfitter');
     mkdirSync(join(sourceOutfitterPath, 'profiles', 'team'), { recursive: true });
     mkdirSync(join(projectDirectory, '.outfitter'), { recursive: true });
-    writeFileSync(join(sourceOutfitterPath, 'settings.yml'), 'default_profile: team\nprofile_sources:\n  - path: ./profiles\n');
+    writeFileSync(
+      join(sourceOutfitterPath, 'settings.yml'),
+      'default_profile: team\nprofile_sources:\n  - path: ./profiles\n',
+    );
     writeFileSync(join(sourceOutfitterPath, 'profiles', 'team', 'profile.yml'), 'id: team\ncontrols: {}\n');
     writeFileSync(join(projectDirectory, '.outfitter', 'settings.yml'), 'default_profile: existing\n');
 
@@ -373,14 +478,19 @@ describe('setup command', () => {
             sync(_uri, cachePath) {
               mkdirSync(join(cachePath, '.outfitter', 'profiles', 'team'), { recursive: true });
               writeFileSync(join(cachePath, '.outfitter', 'settings.yml'), 'default_profile: team\n');
-              writeFileSync(join(cachePath, '.outfitter', 'profiles', 'team', 'profile.yml'), 'id: team\ncontrols: {}\n');
+              writeFileSync(
+                join(cachePath, '.outfitter', 'profiles', 'team', 'profile.yml'),
+                'id: team\ncontrols: {}\n',
+              );
             },
           },
         },
       ),
     ).rejects.toThrow('Cannot symlink local setup source into non-empty .outfitter directory');
 
-    expect(readFileSync(join(projectDirectory, '.outfitter', 'settings.yml'), 'utf8')).toBe('default_profile: existing\n');
+    expect(readFileSync(join(projectDirectory, '.outfitter', 'settings.yml'), 'utf8')).toBe(
+      'default_profile: existing\n',
+    );
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.1.14).
@@ -429,7 +539,7 @@ describe('setup command', () => {
           return Promise.resolve('home');
         },
         selectDefaultProfile(profiles, currentDefault) {
-          expect(currentDefault).toBe('engineer');
+          expect(currentDefault).toBe('ops');
           expect(profiles.map((profile) => profile.id)).toEqual(['ops', 'project-lead']);
           expect(profiles.map((profile) => profile.label)).toEqual(['Operations', 'Project Lead']);
           return Promise.resolve('project-lead');
@@ -449,6 +559,74 @@ describe('setup command', () => {
     expect(readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8')).toContain(
       'default_profile: project-lead',
     );
+  });
+
+  it('imports flat setup-source profiles without creating a directory placeholder and copies shared resources', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const setupSourceUri = 'https://example.test/link-profiles';
+
+    const result = await executeSetupCommand(
+      { homeDirectory, projectDirectory, setupSourceUri },
+      {
+        interactive: true,
+        input: { isTTY: true } as NodeJS.ReadableStream & { isTTY: true },
+        output: { isTTY: true } as NodeJS.WritableStream & { isTTY: true },
+        writeLine: () => undefined,
+        setupSourceSynchronizer: {
+          sync(_uri, cachePath) {
+            mkdirSync(join(cachePath, '.outfitter', 'profiles'), { recursive: true });
+            mkdirSync(join(cachePath, '.outfitter', 'deepwork', 'jobs', 'project_milestone'), { recursive: true });
+            mkdirSync(join(cachePath, '.outfitter', 'skills', 'project-milestone'), { recursive: true });
+            writeFileSync(
+              join(cachePath, '.outfitter', 'settings.yml'),
+              'default_profile: leader\nprofile_sources:\n  - path: ./profiles\n',
+            );
+            writeFileSync(
+              join(cachePath, '.outfitter', 'profiles', 'leader.yml'),
+              'id: leader\nlabel: Project Leader\ncontrols: {}\n',
+            );
+            writeFileSync(
+              join(cachePath, '.outfitter', 'profiles', 'platform.yml'),
+              'id: platform\nlabel: Platform Engineer\ncontrols: {}\n',
+            );
+            writeFileSync(
+              join(cachePath, '.outfitter', 'deepwork', 'jobs', 'project_milestone', 'job.yml'),
+              'name: project_milestone\nworkflows: {}\n',
+            );
+            writeFileSync(join(cachePath, '.outfitter', 'skills', 'project-milestone', 'SKILL.md'), '# Skill\n');
+          },
+        },
+        selectSetupSourceImportTarget() {
+          return Promise.resolve('project');
+        },
+        selectSetupSourceImportMode() {
+          return Promise.resolve('copy');
+        },
+        selectDefaultProfile(profiles) {
+          expect(profiles.map((profile) => `${profile.id}:${profile.label}`)).toEqual([
+            'leader:Project Leader',
+            'platform:Platform Engineer',
+          ]);
+          return Promise.resolve('leader');
+        },
+        selectSetupSourceLaunchAction() {
+          return Promise.resolve('exit');
+        },
+      },
+    );
+
+    expect(result.defaultProfilePath).toBe(join(projectDirectory, '.outfitter', 'profiles', 'leader.yml'));
+    expect(result.createdDefaultProfile).toBe(false);
+    expect(existsSync(join(projectDirectory, '.outfitter', 'profiles', 'leader', 'profile.yml'))).toBe(false);
+    expect(readFileSync(join(projectDirectory, '.outfitter', 'profiles', 'platform.yml'), 'utf8')).toContain(
+      'label: Platform Engineer',
+    );
+    expect(existsSync(join(projectDirectory, '.outfitter', 'deepwork', 'jobs', 'project_milestone', 'job.yml'))).toBe(
+      true,
+    );
+    expect(existsSync(join(projectDirectory, '.outfitter', 'skills', 'project-milestone', 'SKILL.md'))).toBe(true);
   });
 
   it('uses the setup source default profile as the first readline setup choice', async () => {
@@ -1264,6 +1442,9 @@ describe('setup command', () => {
     ).rejects.toThrow('not one of the available setup profiles');
 
     writeSettings(homeDirectory, 'default_profile: engineer\nprofile_sources:\n  - path: ./profiles\n');
+    const dataAnalystDirectory = join(homeDirectory, '.outfitter', 'profiles', 'data_analyst');
+    mkdirSync(dataAnalystDirectory, { recursive: true });
+    writeFileSync(join(dataAnalystDirectory, 'profile.yml'), 'id: data_analyst\nlabel: Data Analyst\ncontrols: {}\n');
     const result = await executeSetupCommand(
       { homeDirectory, projectDirectory },
       {
@@ -1273,8 +1454,8 @@ describe('setup command', () => {
         writeLine: (message) => messages.push(message),
         synchronizer: defaultProfileSynchronizer,
         selectDefaultProfile(profiles, currentDefault) {
-          expect(currentDefault).toBe('engineer');
-          expect(profiles.map((profile) => profile.id)).toEqual(['engineer', 'data_analyst']);
+          expect(currentDefault).toBe('data_analyst');
+          expect(profiles.map((profile) => profile.id)).toEqual(['data_analyst']);
           return Promise.resolve('data_analyst');
         },
         selectWelcomePlan() {
@@ -1285,12 +1466,12 @@ describe('setup command', () => {
 
     const dataAnalystProfilePath = join(homeDirectory, '.outfitter', 'profiles', 'data_analyst', 'profile.yml');
     expect(result.defaultProfilePath).toBe(dataAnalystProfilePath);
-    expect(readFileSync(result.defaultProfilePath, 'utf8')).toBe('id: data_analyst\nlabel: Default\ncontrols: {}\n');
+    expect(readFileSync(result.defaultProfilePath, 'utf8')).toBe(
+      'id: data_analyst\nlabel: Data Analyst\ncontrols: {}\n',
+    );
     expect(result.messages).toContain("Selected default profile 'data_analyst'.");
-    expect(messages).toEqual([
-      'Welcome to Outfitter. Outfitter is the easiest way to run Pi.',
-      'Outfitter manages full pi configurations for you, so you can use different profiles in different situations.',
-    ]);
+    expect(messages.join('\n')).toContain('____        _    __ _ _   _');
+    expect(messages.join('\n')).toContain('Welcome to Outfitter.');
     expect(readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8')).toContain(
       'default_profile: data_analyst',
     );
@@ -1444,7 +1625,7 @@ describe('setup command', () => {
           },
         },
         selectDefaultProfile(profiles) {
-          expect(profiles.map((profile) => profile.id)).toEqual(['github', 'legacy', 'repository']);
+          expect(profiles.map((profile) => profile.id)).toEqual(['legacy', 'github', 'repository']);
           expect(profiles.find((profile) => profile.id === 'repository')?.label).toBe('Repository');
           return Promise.resolve('repository');
         },
@@ -1488,7 +1669,8 @@ describe('setup command', () => {
     const projectDirectory = join(root, 'project');
     const input = Object.assign(new PassThrough(), { isTTY: true });
     const output = Object.assign(new PassThrough(), { isTTY: true });
-    const messages: string[] = [];
+    const outputChunks: Buffer[] = [];
+    output.on('data', (chunk: Buffer) => outputChunks.push(chunk));
     writeSettings(homeDirectory, 'default_profile: solo\nprofile_sources: []\n');
     input.end('\n');
 
@@ -1498,7 +1680,6 @@ describe('setup command', () => {
         interactive: true,
         input,
         output,
-        writeLine: (message) => messages.push(message),
         selectWelcomePlan() {
           return Promise.resolve({ answerQuestions: false });
         },
@@ -1506,7 +1687,7 @@ describe('setup command', () => {
     );
 
     expect(result.messages).toContain("Selected default profile 'solo'.");
-    expect(messages[0]).toContain('Welcome to Outfitter');
+    expect(Buffer.concat(outputChunks).toString('utf8')).toContain('Welcome to Outfitter');
     expect(readFileSync(join(homeDirectory, '.outfitter', 'settings.yml'), 'utf8')).toContain('default_profile: solo');
   });
 

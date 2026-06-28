@@ -138,23 +138,12 @@ const setupSourceImportTargetChoices: readonly SetupSourceImportTargetChoice[] =
   },
 ];
 
-const builtInSetupProfileChoices: readonly SetupProfileChoice[] = [
-  {
-    id: 'engineer',
-    label: 'Engineer',
-    description: 'Engineering setup for repository navigation, maintainable code changes, tests, and reviews.',
-  },
-  {
-    id: 'data_analyst',
-    label: 'Data Analyst',
-    description: 'Data analysis setup for careful inspection, reproducible methods, assumptions, and summaries.',
-  },
-];
-
 interface StarterLayout {
   readonly cachePath: string;
   readonly settingsPath?: string;
   readonly profilesPath?: string;
+  readonly sourceKind: 'local-live' | 'remote-cache';
+  readonly sourceOutfitterPath?: string;
 }
 
 /* eslint-disable complexity -- setup orchestration coordinates settings, sync, prompts, and welcome persistence. */
@@ -166,7 +155,12 @@ export const executeSetupCommand = async (
   const settingsPath = join(input.homeDirectory, '.outfitter', 'settings.yml');
   const initialSettingsMissing = !existsSync(settingsPath);
   const starterLayout = input.setupSourceUri
-    ? prepareStarterLayout(input.homeDirectory, input.setupSourceUri, dependencies.setupSourceSynchronizer)
+    ? prepareStarterLayout(
+        input.homeDirectory,
+        input.projectDirectory,
+        input.setupSourceUri,
+        dependencies.setupSourceSynchronizer,
+      )
     : undefined;
   const loadedSettings = loadSettings(discoverSettingsLoadPlan(input));
 
@@ -307,7 +301,7 @@ const executeInteractiveSetupSourceCommand = async ({
     syncResult,
   );
 
-  const defaultProfilePath = join(appliedImport.profilesPath, onboarding.selectedProfileId, 'profile.yml');
+  const defaultProfilePath = findSetupProfilePath(appliedImport.profilesPath, onboarding.selectedProfileId);
   const createdDefaultProfile = appliedImport.symlinkedOutfitter
     ? false
     : createDefaultProfileIfMissing(defaultProfilePath, onboarding.selectedProfileId);
@@ -578,9 +572,25 @@ export const createSetupCommand = (dependencies: SetupCommandDependencies = {}):
 
 const prepareStarterLayout = (
   homeDirectory: string,
+  projectDirectory: string,
   setupSourceUri: string,
   synchronizer: SetupSourceSynchronizer = createGitSetupSourceSynchronizer(),
 ): StarterLayout => {
+  const localOutfitterPath = resolveLocalSetupSourceOutfitterPathFromUri(setupSourceUri, projectDirectory);
+
+  if (localOutfitterPath !== undefined) {
+    const settingsPath = join(localOutfitterPath, 'settings.yml');
+    validateStarterSettingsIfPresent(existsSync(settingsPath) ? settingsPath : undefined);
+
+    return {
+      cachePath: localOutfitterPath,
+      settingsPath: existsSync(settingsPath) ? settingsPath : undefined,
+      profilesPath: firstExistingPath(join(localOutfitterPath, 'profiles')),
+      sourceKind: 'local-live',
+      sourceOutfitterPath: localOutfitterPath,
+    };
+  }
+
   const cachePath = createSetupSourceCachePath(homeDirectory, setupSourceUri);
   synchronizer.sync(setupSourceUri, cachePath);
 
@@ -599,7 +609,7 @@ const prepareStarterLayout = (
     join(cachePath, '.outfitter', 'profiles'),
   );
 
-  return { cachePath, settingsPath, profilesPath };
+  return { cachePath, settingsPath, profilesPath, sourceKind: 'remote-cache' };
 };
 
 const createSetupSourceCachePath = (homeDirectory: string, setupSourceUri: string): string =>
@@ -739,25 +749,64 @@ const applySetupSourceImport = (
   onboarding: SetupSourceOnboardingResult,
 ): AppliedSetupSourceImport => {
   const target = createSetupSourceImportTargetLayout(input, onboarding.importTarget);
-  const sourceOutfitterPath = resolveLocalSetupSourceOutfitterPath(input);
-  const symlinkedOutfitter = onboarding.importMode === 'symlink';
-  const createdSettings = symlinkedOutfitter
-    ? false
-    : createImportSettingsIfMissing(target.settingsPath, starterLayout.settingsPath, onboarding.selectedProfileId);
-  const selectedProfilePath = join(target.profilesPath, onboarding.selectedProfileId, 'profile.yml');
-  const selectedProfileAlreadyExists = existsSync(selectedProfilePath);
 
-  if (symlinkedOutfitter) {
-    if (sourceOutfitterPath === undefined) {
-      throw new Error('Local setup-source symlink mode requires a source .outfitter directory.');
-    }
-
-    if (!existsSync(join(sourceOutfitterPath, 'settings.yml'))) {
-      throw new Error('Local setup-source symlink mode requires source .outfitter/settings.yml.');
-    }
-
-    symlinkLocalOutfitterSource(sourceOutfitterPath, dirname(target.settingsPath));
+  if (onboarding.importMode === 'symlink') {
+    return applySetupSourceSymlinkImport(input, target, onboarding);
   }
+
+  return applySetupSourceCopyImport(starterLayout, target, onboarding);
+};
+
+const applySetupSourceSymlinkImport = (
+  input: SetupCommandInput,
+  target: Pick<AppliedSetupSourceImport, 'settingsPath' | 'settingsDescription' | 'profilesPath'>,
+  onboarding: SetupSourceOnboardingResult,
+): AppliedSetupSourceImport => {
+  const sourceOutfitterPath = resolveLocalSetupSourceOutfitterPath(input);
+
+  if (sourceOutfitterPath === undefined) {
+    throw new Error('Local setup-source symlink mode requires a source .outfitter directory.');
+  }
+
+  const sourceSettingsPath = join(sourceOutfitterPath, 'settings.yml');
+
+  if (!existsSync(sourceSettingsPath)) {
+    throw new Error('Local setup-source symlink mode requires source .outfitter/settings.yml.');
+  }
+
+  validateStarterSettingsIfPresent(sourceSettingsPath);
+
+  const sourceProfilesPath = join(sourceOutfitterPath, 'profiles');
+  const sourceSelectedProfilePath = findSetupProfilePath(sourceProfilesPath, onboarding.selectedProfileId);
+
+  if (!existsSync(sourceSelectedProfilePath)) {
+    throw new Error(`Local setup-source symlink mode requires selected profile '${onboarding.selectedProfileId}'.`);
+  }
+
+  symlinkLocalOutfitterSource(sourceOutfitterPath, dirname(target.settingsPath));
+
+  return {
+    ...target,
+    createdSettings: false,
+    copiedStarterProfileFiles: 0,
+    copiedStarterResourceFiles: 0,
+    selectedProfileAlreadyExists: false,
+    symlinkedOutfitter: true,
+  };
+};
+
+const applySetupSourceCopyImport = (
+  starterLayout: StarterLayout,
+  target: Pick<AppliedSetupSourceImport, 'settingsPath' | 'settingsDescription' | 'profilesPath'>,
+  onboarding: SetupSourceOnboardingResult,
+): AppliedSetupSourceImport => {
+  const createdSettings = createImportSettingsIfMissing(
+    target.settingsPath,
+    starterLayout.settingsPath,
+    onboarding.selectedProfileId,
+  );
+  const selectedProfilePath = findSetupProfilePath(target.profilesPath, onboarding.selectedProfileId);
+  const selectedProfileAlreadyExists = existsSync(selectedProfilePath);
 
   ensureLocalProfileSource(target.settingsPath, target.profilesPath);
   updateSettingsDefaultProfile(target.settingsPath, onboarding.selectedProfileId);
@@ -765,30 +814,33 @@ const applySetupSourceImport = (
   return {
     ...target,
     createdSettings,
-    copiedStarterProfileFiles: symlinkedOutfitter
-      ? 0
-      : copyStarterProfileFilesIfPresent(starterLayout.profilesPath, target.profilesPath),
-    copiedStarterResourceFiles: symlinkedOutfitter
-      ? 0
-      : copyStarterResourceFilesIfPresent(starterLayout.profilesPath, dirname(target.settingsPath)),
-    selectedProfileAlreadyExists: symlinkedOutfitter || selectedProfileAlreadyExists,
-    selectedProfileConflictMessage:
-      !symlinkedOutfitter && selectedProfileAlreadyExists
-        ? `Existing selected setup-source profile '${onboarding.selectedProfileId}' at ${selectedProfilePath} was not overwritten.`
-        : undefined,
-    symlinkedOutfitter,
+    copiedStarterProfileFiles: copyStarterProfileFilesIfPresent(starterLayout.profilesPath, target.profilesPath),
+    copiedStarterResourceFiles: copyStarterResourceFilesIfPresent(
+      starterLayout.profilesPath,
+      dirname(target.settingsPath),
+    ),
+    selectedProfileAlreadyExists,
+    selectedProfileConflictMessage: selectedProfileAlreadyExists
+      ? `Existing selected setup-source profile '${onboarding.selectedProfileId}' at ${selectedProfilePath} was not overwritten.`
+      : undefined,
+    symlinkedOutfitter: false,
   };
 };
 
+const resolveLocalSetupSourceOutfitterPath = (input: SetupCommandInput): string | undefined =>
+  input.setupSourceUri === undefined
+    ? undefined
+    : resolveLocalSetupSourceOutfitterPathFromUri(input.setupSourceUri, input.projectDirectory);
 
-const resolveLocalSetupSourceOutfitterPath = (input: SetupCommandInput): string | undefined => {
-  if (input.setupSourceUri === undefined || isRemoteSetupSourceUri(input.setupSourceUri)) {
+const resolveLocalSetupSourceOutfitterPathFromUri = (
+  setupSourceUri: string,
+  projectDirectory: string,
+): string | undefined => {
+  if (isRemoteSetupSourceUri(setupSourceUri)) {
     return undefined;
   }
 
-  const sourcePath = isAbsolute(input.setupSourceUri)
-    ? input.setupSourceUri
-    : resolve(input.projectDirectory, input.setupSourceUri);
+  const sourcePath = isAbsolute(setupSourceUri) ? setupSourceUri : resolve(projectDirectory, setupSourceUri);
   const outfitterPath = sourcePath.endsWith('.outfitter') ? sourcePath : join(sourcePath, '.outfitter');
 
   return existsSync(outfitterPath) ? outfitterPath : undefined;
@@ -901,7 +953,11 @@ const copyStarterResourceFilesIfPresent = (
   }
 
   const sourceOutfitterPath = dirname(sourceProfilesPath);
-  return copyNamedStarterResourceDirectoryIfPresent(sourceOutfitterPath, targetOutfitterPath, 'prompts');
+  return ['prompts', 'deepwork', 'skills'].reduce(
+    (copiedFiles, resourceName) =>
+      copiedFiles + copyNamedStarterResourceDirectoryIfPresent(sourceOutfitterPath, targetOutfitterPath, resourceName),
+    0,
+  );
 };
 
 const copyNamedStarterResourceDirectoryIfPresent = (
@@ -939,6 +995,20 @@ const copyDirectoryContentsWithoutOverwriting = (sourceDirectory: string, target
   }
 
   return copiedFiles;
+};
+
+const findSetupProfilePath = (profilesPath: string, profileId: string): string => {
+  for (const profilePath of [
+    join(profilesPath, `${profileId}.yml`),
+    join(profilesPath, `${profileId}.yaml`),
+    join(profilesPath, profileId, 'profile.yml'),
+  ]) {
+    if (existsSync(profilePath)) {
+      return profilePath;
+    }
+  }
+
+  return join(profilesPath, profileId, 'profile.yml');
 };
 
 const createDefaultProfileIfMissing = (profilePath: string, profileId: string): boolean => {
@@ -1061,8 +1131,8 @@ const runSetupSourceOnboarding = async (
 ): Promise<SetupSourceOnboardingResult> => {
   const discoveredProfiles = discoverSetupProfileChoices(input, starterLayout);
   const sourceDefault = discoverSetupSourcePromptDefault(input, starterLayout, discoveredProfiles);
-  const promptDefault = sourceDefault ?? currentDefault;
-  const profiles = selectSetupPromptProfiles(input, discoveredProfiles, currentDefault, sourceDefault);
+  const promptDefault = chooseSetupPromptDefault(discoveredProfiles, sourceDefault, currentDefault);
+  const profiles = selectSetupPromptProfiles(discoveredProfiles, currentDefault, promptDefault);
   const localSymlinkAvailable = resolveLocalSetupSourceOutfitterPath(input) !== undefined;
 
   if (
@@ -1279,13 +1349,9 @@ const selectDefaultProfileIfInteractive = async (
 
   const discoveredProfiles = discoverSetupProfileChoices(input, starterLayout);
   const sourceDefault = discoverSetupSourcePromptDefault(input, starterLayout, discoveredProfiles);
-  const promptDefault = sourceDefault ?? currentDefault;
-  const profiles = selectSetupPromptProfiles(input, discoveredProfiles, currentDefault, sourceDefault);
-  const writer = dependencies.writeLine ?? console.log;
-  writer('Welcome to Outfitter. Outfitter is the easiest way to run Pi.');
-  writer(
-    'Outfitter manages full pi configurations for you, so you can use different profiles in different situations.',
-  );
+  const promptDefault = chooseSetupPromptDefault(discoveredProfiles, sourceDefault, currentDefault);
+  const profiles = selectSetupPromptProfiles(discoveredProfiles, currentDefault, promptDefault);
+  writeWelcomeIntro(resolvePromptOutput(dependencies));
   const selectedProfile = await selectSetupProfile(profiles, promptDefault, dependencies);
   assertValidSelectedDefaultProfile(selectedProfile, profiles);
   updateSettingsDefaultProfile(settingsPath, selectedProfile);
@@ -1314,19 +1380,28 @@ const discoverSetupSourcePromptDefault = (
 };
 
 const selectSetupPromptProfiles = (
-  input: SetupCommandInput,
   discoveredProfiles: readonly SetupProfileChoice[],
   currentDefault: string,
-  sourceDefault: string | undefined,
+  promptDefault: string,
 ): readonly SetupProfileChoice[] => {
-  const profiles =
-    discoveredProfiles.length > 0 ||
-    input.setupSourceUri !== undefined ||
-    builtInSetupProfileChoices.every((profile) => profile.id !== currentDefault)
-      ? discoveredProfiles
-      : builtInSetupProfileChoices;
+  const profiles = discoveredProfiles.length > 0 ? discoveredProfiles : [{ id: currentDefault }];
+  return prioritizeSetupProfileChoice(profiles, promptDefault);
+};
 
-  return sourceDefault === undefined ? profiles : prioritizeSetupProfileChoice(profiles, sourceDefault);
+const chooseSetupPromptDefault = (
+  profiles: readonly SetupProfileChoice[],
+  sourceDefault: string | undefined,
+  fallbackDefault: string,
+): string => {
+  if (sourceDefault !== undefined && profiles.some((profile) => profile.id === sourceDefault)) {
+    return sourceDefault;
+  }
+
+  if (profiles.some((profile) => profile.id === fallbackDefault)) {
+    return fallbackDefault;
+  }
+
+  return profiles[0]?.id ?? fallbackDefault;
 };
 
 const prioritizeSetupProfileChoice = (
