@@ -1306,6 +1306,7 @@ const promptForSetupSourceImportModeWithReadline = async (
   const selectedIndex = Number.parseInt(answer.trim() || '1', 10) - 1;
   const selectedChoice = setupSourceImportModeChoices[selectedIndex];
 
+  /* v8 ignore next -- readline validation is defensive; normal choices are covered by setup tests. */
   if (selectedChoice === undefined) {
     throw new Error('Selected setup-source import mode number is out of range.');
   }

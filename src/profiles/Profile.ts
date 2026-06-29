@@ -38,6 +38,7 @@ export interface Profile {
   readonly label?: string;
   readonly description?: string;
   readonly template?: boolean;
+  readonly agentGeneration?: boolean;
   readonly inherits: readonly string[];
   readonly controls: ProfileControls;
   readonly statePersistence?: StatePersistenceOverrides;

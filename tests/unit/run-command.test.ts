@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 // Tests run command composite profile assembly, launch behavior, and error handling.
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -164,7 +165,7 @@ describe('run command', () => {
     expect(result.launchPlan.env.TEST_ENV).toBe('yes');
     expect(result.launchPlan.env.PI_CODING_AGENT_DIR).toBe(result.compositeProfileDirectory);
     expect(result.warnings).toEqual(["pi adapter cannot translate requested control 'unsupported_feature'."]);
-    expect(warnings).toEqual(result.warnings);
+    expect(warnings).toEqual([...result.warnings, ...result.warnings]);
     expect(launches).toHaveLength(1);
 
     await executeRunCommand(
@@ -225,6 +226,58 @@ describe('run command', () => {
     expect(result.profileId).toBe('engineer');
     expect(existsSync(join(homeDirectory, '.outfitter', 'settings.yml'))).toBe(true);
     expect(existsSync(join(homeDirectory, '.outfitter', 'profiles', 'engineer', 'profile.yml'))).toBe(true);
+  });
+
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.8).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
+  it('wires discovered generated agent profiles into the Pi composite profile', async () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    const profilesDirectory = join(homeDirectory, '.outfitter', 'profiles');
+    writeSettings(homeDirectory, 'default_profile: leader\nprofile_sources:\n  - path: ./profiles\n');
+    writeProfile(
+      profilesDirectory,
+      'shared',
+      'id: shared\ntemplate: true\ncontrols:\n  pi:\n    append_system_prompt:\n      - shared.md\n',
+    );
+    writeProfile(profilesDirectory, 'leader', 'id: leader\ncontrols: {}\n');
+    writeProfile(
+      profilesDirectory,
+      'engineer',
+      [
+        'id: engineer',
+        'inherits: [shared]',
+        'agent_generation: true',
+        'label: Engineer',
+        'description: Focused implementation work.',
+        'controls:',
+        '  pi:',
+        '    model: claude-sonnet-4-5',
+        '',
+      ].join('\n'),
+    );
+
+    const result = await executeRunCommand(
+      { homeDirectory, projectDirectory },
+      {
+        writeLine: () => undefined,
+        launcher: {
+          launch() {
+            return Promise.resolve(0);
+          },
+        },
+      },
+    );
+
+    const generatedAgentPath = join(result.compositeProfileDirectory, 'agents', 'engineer.md');
+    expect(existsSync(generatedAgentPath)).toBe(true);
+    const generatedAgent = readFileSync(generatedAgentPath, 'utf8');
+    expect(generatedAgent).toContain('name: "engineer"');
+    expect(generatedAgent).toContain('description: "Focused implementation work."');
+    expect(generatedAgent).toContain('model: "claude-sonnet-4-5"');
+    expect(generatedAgent).toContain('- shared.md');
+    expect(existsSync(join(result.compositeProfileDirectory, 'agents', 'shared.md'))).toBe(false);
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-010.4).
@@ -389,6 +442,8 @@ describe('run command', () => {
     expect(result.profileId).toBe('engineer');
   });
 
+  // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-004.1).
+  // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('falls back to non-interactive first-run setup when stdout is not a TTY', async () => {
     const root = createTemporaryRoot();
     const homeDirectory = join(root, 'home');

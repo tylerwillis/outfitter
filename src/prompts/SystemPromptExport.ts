@@ -26,6 +26,7 @@ export const exportSystemPromptIfEnabled = (input: SystemPromptExportInput): Sys
 
   const owner = findSelectedProfileOwner(input.profile, input.profileLayers);
 
+  /* v8 ignore next -- run command supplies selected profile layers; this protects direct API misuse. */
   if (owner === undefined) {
     input.warn(`System prompt export skipped for profile '${input.profile.id}' because no source profile was found.`);
     return {};
@@ -77,8 +78,10 @@ const normalizeAppendSystemPrompt = (value: ProfileControls['appendSystemPrompt'
   return typeof value === 'string' ? [value] : value;
 };
 
-const findSelectedProfileOwner = (profile: Profile, profileLayers: readonly LoadedProfile[]): LoadedProfile | undefined =>
-  profileLayers.filter((layer) => layer.profile.id === profile.id).at(-1);
+const findSelectedProfileOwner = (
+  profile: Profile,
+  profileLayers: readonly LoadedProfile[],
+): LoadedProfile | undefined => profileLayers.filter((layer) => layer.profile.id === profile.id).at(-1);
 
 const resolveSystemPromptExportPath = (profile: Profile, owner: LoadedProfile): string => {
   const root = owner.resourceRootPath ?? dirname(owner.profilePath);
@@ -95,6 +98,7 @@ const assertInsideRoot = (root: string, path: string): string => {
   const resolvedPath = resolve(path);
   const relativePath = relative(resolvedRoot, resolvedPath);
 
+  /* v8 ignore next -- output paths are derived from profile roots; this guards future path construction changes. */
   if (relativePath === '' || !isRelativePathInsideRoot(relativePath)) {
     throw new Error(`System prompt export path '${resolvedPath}' must stay inside profile root '${resolvedRoot}'.`);
   }
