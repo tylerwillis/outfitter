@@ -18,6 +18,8 @@ outfitter setup
 outfitter
 ```
 
+Learn how shared setup sources work in [Profile repositories](./profile-repository.md), then see [Profiles](./profiles.md) for profile composition, inheritance, and prompt examples.
+
 ## Common commands
 
 ```bash
