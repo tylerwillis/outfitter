@@ -381,9 +381,9 @@ const createStartupHeaderLines = (theme, firstRun) => {
 
   if (OUTFITTER_STARTUP_ASCII_ART) {
     lines.push(
-      theme.fg("accent", "  ____        __  ____ __  __"),
-      theme.fg("accent", " / __ \\__  __/ /_/ __// /_/ /____  _____"),
-      theme.fg("accent", "/ / / / / / / __/ /_ / __/ __/ _ \\/ ___/"),
+      theme.fg("accent", "   ____        __  ____ __  __"),
+      theme.fg("accent", "  / __ \\__  __/ /_/ __// /_/ /____  _____"),
+      theme.fg("accent", " / / / / / / / __/ /_ / __/ __/ _ \\/ ___/"),
       theme.fg("accent", "/ /_/ / /_/ / /_/ __// /_/ /_/  __/ /"),
       theme.fg("accent", "\\____/\\__,_/\\__/_/   \\__/\\__/\\___/_/"),
       "",
