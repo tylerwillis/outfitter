@@ -11,6 +11,10 @@ export type SettingsValue =
   | { readonly [key: string]: SettingsValue };
 export type CustomSettings = Readonly<Record<string, SettingsValue>>;
 
+export interface StartupSettings {
+  readonly asciiArt?: boolean;
+}
+
 export interface Settings {
   readonly defaultProfile?: string;
   readonly defaultAgent?: string;
@@ -19,6 +23,7 @@ export interface Settings {
   readonly cacheDirectory?: string;
   readonly customSettings?: CustomSettings;
   readonly profileExport?: boolean;
+  readonly startup?: StartupSettings;
 }
 
 export const emptySettings = (): Settings => ({

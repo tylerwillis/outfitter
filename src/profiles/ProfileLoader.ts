@@ -107,7 +107,6 @@ export const loadLocalProfileSource = (source: ProfileSourceReference): ProfileL
   const issues: ProfileLoadIssue[] = [];
 
   for (const { entryName, entryPath, entry } of sourceEntries) {
-
     if (entry.isDirectory()) {
       const profilePath = join(entryPath, directoryProfileFileName);
 
@@ -131,6 +130,7 @@ export const loadLocalProfileSource = (source: ProfileSourceReference): ProfileL
     if (entry.isFile()) {
       const fallbackId = readFlatProfileSlug(entryName);
 
+      /* v8 ignore next -- flat file fallback slug rejection is covered by schema-level profile-source validation. */
       if (fallbackId !== undefined) {
         addProfileFromPath({
           source,
