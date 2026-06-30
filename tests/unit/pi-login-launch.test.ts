@@ -12,6 +12,12 @@ import { preparePiLoginLaunchPlan } from '../../src/cli/commands/PiLoginLaunch.j
 import { createRemoteRepositoryCachePath } from '../../src/profiles/ProfileCache.js';
 
 const temporaryRoots: string[] = [];
+const expectedOutfitterAsciiArt = readFileSync(
+  new URL('../../src/cli/commands/assets/outfitter-ascii.txt', import.meta.url),
+  'utf8',
+)
+  .trimEnd()
+  .split('\n');
 
 const createAgentDir = (): string => {
   const root = mkdtempSync(join(tmpdir(), 'outfitter-pi-login-'));
@@ -308,13 +314,10 @@ describe('preparePiLoginLaunchPlan', () => {
     extension(pi);
     await startMockSession(pi, context);
 
-    expect(context.headerRenders[0]?.slice(0, 5)).toEqual([
-      '  ___        _    __ _ _   _            ',
-      ' / _ \\ _   _| |_ / _(_) |_| |_ ___ _ __ ',
-      "| | | | | | | __| |_| | __| __/ _ \\ '__|",
-      '| |_| | |_| | |_|  _| | |_| ||  __/ |   ',
-      ' \\___/ \\__,_|\\__|_| |_|\\__|\\__\\___|_|   ',
-    ]);
+    expect(readExtension(plan, 'outfitter-extension.js')).toContain(
+      'const OUTFITTER_ASCII_GRADIENT = ["dim", "muted", "text", "accent", "success"]',
+    );
+    expect(context.headerRenders[0]?.slice(0, 5)).toEqual(expectedOutfitterAsciiArt);
   });
 
   it('renders first-run explanatory startup text and allows startup ASCII art to be disabled', async () => {

@@ -127,6 +127,7 @@ const createPiOutfitterExtensionContent = (input: {
   readonly startupAsciiArt: boolean;
 }): string => {
   const defaultSettingsTemplate = createSetupDefaultSettingsContent('__OUTFITTER_PROFILE_ID__');
+  const startupAsciiArt = readFileSync(new URL('./assets/outfitter-ascii.txt', import.meta.url), 'utf8').trimEnd();
 
   return String.raw`import { matchesKey } from "@earendil-works/pi-tui";
 
@@ -138,6 +139,8 @@ const OUTFITTER_DEFAULT_PROFILES_PATH = ${JSON.stringify(input.defaultProfilesPa
 const OUTFITTER_AUTO_OPEN = ${JSON.stringify(input.autoOpenOutfitter)};
 const OUTFITTER_DEFAULT_SETTINGS_TEMPLATE = ${JSON.stringify(defaultSettingsTemplate)};
 const OUTFITTER_STARTUP_ASCII_ART = ${JSON.stringify(input.startupAsciiArt)};
+const OUTFITTER_ASCII_ART = ${JSON.stringify(startupAsciiArt)};
+const OUTFITTER_ASCII_GRADIENT = ["dim", "muted", "text", "accent", "success"];
 const OUTFITTER_PROFILE_ID_PATTERN = /^[a-z0-9][a-z0-9._-]*[a-z0-9]$|^[a-z0-9]$/u;
 
 export default function outfitter(pi) {
@@ -409,11 +412,7 @@ const createStartupHeaderLines = (theme, firstRun) => {
 
   if (OUTFITTER_STARTUP_ASCII_ART) {
     lines.push(
-      theme.fg("accent", "  ___        _    __ _ _   _            "),
-      theme.fg("accent", " / _ \\ _   _| |_ / _(_) |_| |_ ___ _ __ "),
-      theme.fg("accent", "| | | | | | | __| |_| | __| __/ _ \\ '__|"),
-      theme.fg("accent", "| |_| | |_| | |_|  _| | |_| ||  __/ |   "),
-      theme.fg("accent", " \\___/ \\__,_|\\__|_| |_|\\__|\\__\\___|_|   "),
+      ...OUTFITTER_ASCII_ART.split("\n").map((line, index) => theme.fg(OUTFITTER_ASCII_GRADIENT[index] ?? "accent", line)),
       "",
     );
   }
