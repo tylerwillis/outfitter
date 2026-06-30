@@ -293,6 +293,30 @@ describe('preparePiLoginLaunchPlan', () => {
     expect(header).not.toContain('pi.sendUserMessage');
   });
 
+  it('renders the Outfitter ASCII startup art by default', async () => {
+    const agentDir = createAgentDir();
+    const plan = preparePiLoginLaunchPlan({
+      adapterId: 'pi',
+      homeDirectory: agentDir,
+      launchPlan: createLaunchPlan(agentDir),
+      writeLine: () => undefined,
+    });
+    const extension = evaluateOutfitterExtension(readExtension(plan, 'outfitter-extension.js'));
+    const pi = createMockPi();
+    const context = createMockContext();
+
+    extension(pi);
+    await startMockSession(pi, context);
+
+    expect(context.headerRenders[0]?.slice(0, 5)).toEqual([
+      '  ____        __  ____ __  __',
+      ' / __ \\__  __/ /_/ __// /_/ /____  _____',
+      '/ / / / / / / __/ /_ / __/ __/ _ \\/ ___/',
+      '/ /_/ / /_/ / /_/ __// /_/ /_/  __/ /',
+      '\\____/\\__,_/\\__/_/   \\__/\\__/\\___/_/',
+    ]);
+  });
+
   it('renders first-run explanatory startup text and allows startup ASCII art to be disabled', async () => {
     const homeDirectory = createAgentDir();
     const agentDir = createAgentDir();
