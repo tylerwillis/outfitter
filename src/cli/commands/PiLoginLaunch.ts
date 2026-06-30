@@ -281,15 +281,8 @@ export default function outfitter(pi) {
         [
           "Outfitter profile setup",
           "",
-          "Choose the default profile from the selected catalog for future 'outfitter' launches. The current Pi process keeps the profile it started with; this setting applies on the next launch.",
-          "",
-          ...profiles.map(
-            (profile) =>
-              "• " +
-              profile.id +
-              (profile.label ? " — " + profile.label : "") +
-              (profile.description ? ": " + profile.description : ""),
-          ),
+          "Choose the default profile from the selected catalog for future 'outfitter' launches.",
+          "The current Pi process keeps the profile it started with; this setting applies on the next launch.",
         ].join("\n"),
         labels,
       );
@@ -645,7 +638,9 @@ const compareProfiles = (left, right, currentDefault) => {
 const formatProfileOption = (profile, currentDefault) => {
   const current = profile.id === currentDefault ? " (current)" : "";
   const recommended = currentDefault === undefined && profile.id === "founder" ? " (Recommended)" : "";
-  return profile.id + (profile.label ? " — " + profile.label : "") + current + recommended;
+  const label = profile.label ? " — " + profile.label : "";
+  const description = profile.description ? ": " + profile.description : "";
+  return profile.id + label + description + current + recommended;
 };
 
 const createDefaultSettingsContent = (profileId) =>

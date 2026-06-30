@@ -37,14 +37,17 @@ const writeDefaultProfilesCache = (homeDirectory: string): string => {
     'profiles',
   );
 
-  for (const [id, label] of [
-    ['founder', 'Founder'],
-    ['engineer', 'Engineer'],
-    ['data_analyst', 'Data Analyst'],
+  for (const [id, label, description] of [
+    ['founder', 'Founder', 'Founder/operator profile for product, planning, and execution'],
+    ['engineer', 'Engineer', undefined],
+    ['data_analyst', 'Data Analyst', 'Analysis profile for data questions and structured research'],
   ] as const) {
     const profileDirectory = join(profilesPath, id);
     mkdirSync(profileDirectory, { recursive: true });
-    writeFileSync(join(profileDirectory, 'profile.yml'), `id: ${id}\nlabel: ${label}\ncontrols: {}\n`);
+    writeFileSync(
+      join(profileDirectory, 'profile.yml'),
+      `id: ${id}\nlabel: ${label}\n${description === undefined ? '' : `description: ${description}\n`}controls: {}\n`,
+    );
   }
 
   return profilesPath;
@@ -541,7 +544,7 @@ describe('preparePiLoginLaunchPlan', () => {
     const context = createMockContext({
       selectedOptions: [
         'Use the default Outfitter profile catalog',
-        'data_analyst — Data Analyst',
+        'data_analyst — Data Analyst: Analysis profile for data questions and structured research',
         'Home folder (~/.outfitter)',
       ],
     });
@@ -559,9 +562,11 @@ describe('preparePiLoginLaunchPlan', () => {
         'Provide a different catalog to import',
       ],
     });
+    expect(context.selectCalls[1]?.title).not.toContain('• founder');
+    expect(context.selectCalls[1]?.title).not.toContain('Founder/operator profile');
     expect(context.selectCalls[1]?.options).toEqual([
-      'founder — Founder (Recommended)',
-      'data_analyst — Data Analyst',
+      'founder — Founder: Founder/operator profile for product, planning, and execution (Recommended)',
+      'data_analyst — Data Analyst: Analysis profile for data questions and structured research',
       'engineer — Engineer',
     ]);
     expect(context.selectCalls[2]?.options).toEqual(['Home folder (~/.outfitter)', 'Current project directory (.outfitter)']);
