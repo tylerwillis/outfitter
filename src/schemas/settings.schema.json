@@ -8,6 +8,17 @@
     "default_agent": { "enum": ["pi", "claude"] },
     "cache_directory": { "type": "string", "minLength": 1 },
     "profile_export": { "type": "boolean" },
+    "startup": {
+      "type": "object",
+      "description": "Controls Outfitter startup presentation inside launched agents.",
+      "properties": {
+        "ascii_art": {
+          "type": "boolean",
+          "description": "Show the Outfitter ASCII/brand header on Pi startup. Defaults to true."
+        }
+      },
+      "additionalProperties": false
+    },
     "profile_sources": {
       "type": "array",
       "items": { "$ref": "profile-source.schema.json" }
