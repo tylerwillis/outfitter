@@ -45,6 +45,11 @@ interface SettingsDocument {
   readonly cache_directory?: string;
   readonly custom_settings?: CustomSettings;
   readonly profile_export?: boolean;
+  readonly startup?: StartupSettingsDocument;
+}
+
+interface StartupSettingsDocument {
+  readonly ascii_art?: boolean;
 }
 
 interface ProfileSourceDocument {
@@ -205,7 +210,11 @@ const convertSettingsDocument = (document: SettingsDocument, settingsDirectory: 
       : resolveConfigDirectory(document.cache_directory, settingsDirectory),
   customSettings: document.custom_settings,
   profileExport: document.profile_export,
+  startup: convertStartupSettings(document.startup),
 });
+
+const convertStartupSettings = (startup: StartupSettingsDocument | undefined): Settings['startup'] =>
+  startup === undefined ? undefined : { asciiArt: startup.ascii_art };
 
 const convertRemoteSettingsSource = (source: RemoteSettingsDocument): RemoteSettingsReference => {
   if (source.uri !== undefined) {

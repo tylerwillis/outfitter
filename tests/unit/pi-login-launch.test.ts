@@ -134,6 +134,7 @@ const createMockContext = (
   const notifications: string[] = [];
   const selectCalls: Array<{ readonly title: string; readonly options: readonly string[] }> = [];
   const inputCalls: Array<{ readonly message: string; readonly defaultValue?: string }> = [];
+  const headerRenders: string[][] = [];
   const submittedInputs: string[] = [];
   const selectedOptions = [...(options.selectedOptions ?? [])];
   const inputValues = [...(options.inputValues ?? [])];
@@ -148,6 +149,7 @@ const createMockContext = (
       return editorText;
     },
     notifications,
+    headerRenders,
     inputCalls,
     selectCalls,
     submittedInputs,
@@ -195,7 +197,12 @@ const createMockContext = (
       setEditorText: (text: string) => {
         editorText = text;
       },
-      setHeader: () => undefined,
+      setHeader: (factory: (_tui: unknown, theme: { bold(text: string): string; fg(_color: string, text: string): string }) => { render(): string[] }) => {
+        headerRenders.push(factory({}, {
+          bold: (text: string) => text,
+          fg: (_color: string, text: string) => text,
+        }).render());
+      },
       setStatus: () => undefined,
       theme: {
         bold: (text: string) => text,
@@ -284,6 +291,32 @@ describe('preparePiLoginLaunchPlan', () => {
     // Guards against running outside the interactive TUI.
     expect(header).toContain('if (ctx.mode !== "tui") return;');
     expect(header).not.toContain('pi.sendUserMessage');
+  });
+
+  it('renders first-run explanatory startup text and allows startup ASCII art to be disabled', async () => {
+    const homeDirectory = createAgentDir();
+    const agentDir = createAgentDir();
+    const plan = preparePiLoginLaunchPlan({
+      adapterId: 'pi',
+      homeDirectory,
+      launchPlan: createLaunchPlan(agentDir),
+      runtimeOnboarding: { autoOpenOutfitter: true },
+      startupAsciiArt: false,
+      writeLine: () => undefined,
+    });
+    const extension = evaluateOutfitterExtension(readExtension(plan, 'outfitter-extension.js'));
+    const pi = createMockPi();
+    const context = createMockContext();
+
+    extension(pi);
+    await startMockSession(pi, context);
+
+    const header = context.headerRenders[0]?.join('\n') ?? '';
+    expect(header).toContain('Outfitter turns Pi into a configured working environment:');
+    expect(header).toContain('profiles define model, tools, prompts, skills, and extensions');
+    expect(header).toContain('/outfitter will help you choose a profile catalog and install location.');
+    expect(header).not.toContain('____');
+    expect(context.notifications.join('\n')).toContain('finish first-time setup inside Pi');
   });
 
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-006.7).

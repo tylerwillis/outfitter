@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 // Provides deterministic Settings merge scaffolding.
 import { mergeObjectsWithPolicy } from '../merge/SettingsValueMerger.js';
 import type { CustomSettings, Settings } from './Settings.js';
@@ -11,6 +12,7 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
   let cacheDirectory: string | undefined;
   let customSettings: CustomSettings | undefined;
   let profileExport: boolean | undefined;
+  let startup: Settings['startup'];
 
   for (const settings of settingsStack) {
     defaultProfile = settings.defaultProfile ?? defaultProfile;
@@ -21,6 +23,7 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
     cacheDirectory = settings.cacheDirectory ?? cacheDirectory;
     customSettings = mergeOptionalCustomSettings(customSettings, settings.customSettings);
     profileExport = mergeOptionalBoolean(profileExport, settings.profileExport);
+    startup = settings.startup === undefined ? startup : { ...startup, ...settings.startup };
   }
 
   return {
@@ -32,6 +35,7 @@ export const mergeSettingsStack = (settingsStack: readonly Settings[]): Settings
     cacheDirectory,
     customSettings: customSettings ?? {},
     profileExport,
+    startup: startup ?? {},
   };
 };
 

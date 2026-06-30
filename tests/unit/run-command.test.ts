@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 // Tests run command composite profile assembly, launch behavior, and error handling.
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -237,10 +238,13 @@ describe('run command', () => {
     const homeDirectory = join(root, 'home');
     const projectDirectory = join(root, 'project');
     const messages: string[] = [];
-    writeSettings(homeDirectory, 'default_profile: engineer\nprofile_sources:\n  - path: ./profiles\n');
+    writeSettings(
+      homeDirectory,
+      'default_profile: engineer\nstartup:\n  ascii_art: false\nprofile_sources:\n  - path: ./profiles\n',
+    );
     writeProfile(join(homeDirectory, '.outfitter', 'profiles'), 'engineer', 'id: engineer\ncontrols: {}\n');
 
-    await executeRunCommand(
+    const firstResult = await executeRunCommand(
       { homeDirectory, projectDirectory },
       {
         writeLine: (message) => messages.push(message),
@@ -252,6 +256,11 @@ describe('run command', () => {
       },
     );
 
+    const extensionPath = firstResult.launchPlan.args[firstResult.launchPlan.args.indexOf('--extension') + 1];
+    if (extensionPath === undefined) {
+      throw new Error('Outfitter extension path was not injected.');
+    }
+    expect(readFileSync(extensionPath, 'utf8')).toContain('const OUTFITTER_STARTUP_ASCII_ART = false');
     expect(messages).toContain(
       'Outfitter will ask Pi to open `/login` automatically if Pi reports no available models after startup.',
     );

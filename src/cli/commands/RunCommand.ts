@@ -128,6 +128,7 @@ export const executeRunCommand = async (
             defaultProfilesPath: runtimeOnboarding.defaultProfilesPath,
             projectDirectory: input.projectDirectory,
           },
+    startupAsciiArt: resolvedProfile.settings.startup?.asciiArt,
     writeLine: dependencies.writeLine,
   });
   emitLaunchSummary(

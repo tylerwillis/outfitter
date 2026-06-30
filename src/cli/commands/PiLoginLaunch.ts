@@ -17,6 +17,7 @@ export interface PiLoginLaunchPlanInput {
   readonly homeDirectory: string;
   readonly launchPlan: AgentLaunchPlan;
   readonly runtimeOnboarding?: PiRuntimeOnboardingLaunchInput;
+  readonly startupAsciiArt?: boolean;
   readonly writeLine?: (message: string) => void;
 }
 
@@ -55,6 +56,7 @@ export const preparePiLoginLaunchPlan = (input: PiLoginLaunchPlanInput): AgentLa
       defaultProfilesPath: input.runtimeOnboarding?.defaultProfilesPath,
       homeDirectory: input.homeDirectory,
       projectDirectory: input.runtimeOnboarding?.projectDirectory ?? process.cwd(),
+      startupAsciiArt: input.startupAsciiArt ?? true,
     }),
   );
 
@@ -94,6 +96,7 @@ const createPiOutfitterExtensionContent = (input: {
   readonly defaultProfilesPath?: string;
   readonly homeDirectory: string;
   readonly projectDirectory: string;
+  readonly startupAsciiArt: boolean;
 }): string => {
   const defaultSettingsTemplate = createSetupDefaultSettingsContent('__OUTFITTER_PROFILE_ID__');
 
@@ -106,6 +109,7 @@ const OUTFITTER_PROJECT = ${JSON.stringify(input.projectDirectory)};
 const OUTFITTER_DEFAULT_PROFILES_PATH = ${JSON.stringify(input.defaultProfilesPath)};
 const OUTFITTER_AUTO_OPEN = ${JSON.stringify(input.autoOpenOutfitter)};
 const OUTFITTER_DEFAULT_SETTINGS_TEMPLATE = ${JSON.stringify(defaultSettingsTemplate)};
+const OUTFITTER_STARTUP_ASCII_ART = ${JSON.stringify(input.startupAsciiArt)};
 const OUTFITTER_PROFILE_ID_PATTERN = /^[a-z0-9][a-z0-9._-]*[a-z0-9]$|^[a-z0-9]$/u;
 
 export default function outfitter(pi) {
@@ -317,15 +321,7 @@ export default function outfitter(pi) {
     await exportRuntimeSystemPrompt(ctx);
     if (ctx.mode !== "tui") return;
     ctx.ui.setHeader((_tui, theme) => {
-      const lines = [
-        theme.bold(theme.fg("accent", "Outfitter")) + theme.fg("dim", " + pi"),
-        theme.fg("muted", "/ commands · ! bash · shift+tab mode · ctrl+shift+t thinking · ctrl+o more"),
-        "",
-        theme.fg(
-          "dim",
-          "Outfitter + Pi can explain its own features and look up its docs. Ask it how to use or extend Pi or outfitter profiles.",
-        ),
-      ];
+      const lines = createStartupHeaderLines(theme, event.reason === "startup" && OUTFITTER_AUTO_OPEN);
       return {
         render: () => lines,
         invalidate: () => undefined,
@@ -339,7 +335,7 @@ export default function outfitter(pi) {
     });
 
     if (event.reason === "startup" && OUTFITTER_AUTO_OPEN) {
-      await submitSlashCommand(ctx, "/outfitter", "Outfitter is opening /outfitter to finish profile setup inside Pi.");
+      await submitSlashCommand(ctx, "/outfitter", "Outfitter is opening /outfitter to finish first-time setup inside Pi.");
       return;
     }
 
@@ -377,6 +373,47 @@ export default function outfitter(pi) {
     };
   });
 }
+
+const createStartupHeaderLines = (theme, firstRun) => {
+  const brandLine = theme.bold(theme.fg("accent", "Outfitter")) + theme.fg("dim", " + pi");
+  const commandHelp = theme.fg("muted", "/ commands · ! bash · shift+tab mode · ctrl+shift+t thinking · ctrl+o more");
+  const lines = [];
+
+  if (OUTFITTER_STARTUP_ASCII_ART) {
+    lines.push(
+      theme.fg("accent", "  ____        __  ____ __  __            "),
+      theme.fg("accent", " / __ \\__  __/ /_/ __// /_/ /____  _____"),
+      theme.fg("accent", "/ / / / / / / __/ /_ / __/ __/ _ \\/ ___/"),
+      theme.fg("accent", "/ /_/ / /_/ / /_/ __// /_/ /_/  __/ /    "),
+      theme.fg("accent", "\\____/\\__,_/\\__/_/   \\__/\\__/\\___/_/     "),
+      "",
+    );
+  }
+
+  lines.push(brandLine, commandHelp);
+
+  if (firstRun) {
+    lines.push(
+      "",
+      theme.fg("dim", "Outfitter turns Pi into a configured working environment:"),
+      theme.fg("dim", "• profiles define model, tools, prompts, skills, and extensions"),
+      theme.fg("dim", "• settings can live in your home folder or this project"),
+      theme.fg("dim", "• catalogs let teams share setups through GitHub"),
+      "",
+      theme.fg("dim", "/outfitter will help you choose a profile catalog and install location."),
+    );
+    return lines;
+  }
+
+  lines.push(
+    "",
+    theme.fg(
+      "dim",
+      "Outfitter + Pi can explain its own features and look up its docs. Ask it how to use or extend Pi or outfitter profiles.",
+    ),
+  );
+  return lines;
+};
 
 const createOutfitterPaths = (join) => ({
   homeSettingsPath: join(OUTFITTER_HOME, ".outfitter", "settings.yml"),

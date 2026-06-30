@@ -44,6 +44,8 @@ as `outfitter setup` and `outfitter welcome` MAY still provide their documented 
 2. If no supported direct ask-user-question API exists, Outfitter MUST use a thin abstraction over native Pi `ctx.ui.*` dialogs so a reusable questionnaire API can be plugged in later.
 3. The UI MUST keep credential collection outside Outfitter-managed prompts.
 4. The UI MUST show Outfitter-branded text or notifications that explain Outfitter configures Pi profiles and extensions.
+5. First-time Pi-native onboarding SHOULD show additional startup text explaining that Outfitter uses profiles, settings, and catalogs to configure Pi.
+6. Outfitter startup branding SHOULD include ASCII/brand art by default and MUST allow users to disable it with `startup.ascii_art: false` in `settings.yml`.
 
 ### OFTR-010.4: Pi Login Setup
 

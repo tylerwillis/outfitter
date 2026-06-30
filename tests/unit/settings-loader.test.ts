@@ -83,6 +83,19 @@ describe('settings loading', () => {
     expect(loaded.settings.profileExport).toBe(true);
   });
 
+  it('loads and merges startup display settings', () => {
+    const root = createTemporaryRoot();
+    const homeDirectory = join(root, 'home');
+    const projectDirectory = join(root, 'project');
+    writeSettings(join(homeDirectory, '.outfitter', 'settings.yml'), 'startup:\n  ascii_art: true\n');
+    writeSettings(join(projectDirectory, '.outfitter', 'settings.yml'), 'startup:\n  ascii_art: false\n');
+
+    const loaded = loadSettings(discoverSettingsLoadPlan({ homeDirectory, projectDirectory }));
+
+    expect(loaded.issues).toEqual([]);
+    expect(loaded.settings.startup).toEqual({ asciiArt: false });
+  });
+
   // THIS TEST VALIDATES A HARD REQUIREMENT (OFTR-002.8, OFTR-005.7).
   // YOU MUST NOT MODIFY THIS TEST UNLESS THE REQUIREMENT CHANGES.
   it('loads profile_export as the default generated prompt export setting', () => {
