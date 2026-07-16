@@ -70,3 +70,6 @@ review-results/
 # Agent-local planning artifacts
 TASK.md
 PLAN.md
+/project-log.md
+/project-plan.md
+/docs/plans/
